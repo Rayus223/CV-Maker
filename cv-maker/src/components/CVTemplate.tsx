@@ -50,76 +50,96 @@ const MAX_EXPERIENCES_PER_PAGE = 3;
 const MAX_EDUCATIONS_PER_PAGE = 3;
 const MAX_PROJECTS_PER_PAGE = 2;
 
+// Define types for page data
+interface PageData {
+  experiences: CVData['experience'];
+  education: CVData['education'];
+  projects: CVData['projects'];
+}
+
 const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
   // Split content into pages
   const { pages, totalPages } = useMemo(() => {
-    // Calculate how to distribute content across pages
-    const totalExperiences = data.experience.length;
-    const totalEducations = data.education.length;
-    const totalProjects = data.projects.length;
+    // Setup page collection
+    const pagesArray: PageData[] = [];
+    let currentPage: PageData = {
+      experiences: [],
+      education: [],
+      projects: []
+    };
     
-    // Initialize first page
-    const firstPageExperiences = Math.min(totalExperiences, MAX_EXPERIENCES_PER_PAGE);
-    const firstPageEducations = Math.min(totalEducations, MAX_EDUCATIONS_PER_PAGE);
-    const firstPageProjects = Math.min(totalProjects, MAX_PROJECTS_PER_PAGE);
-
-    const pagesArray = [
-      {
-        experiences: data.experience.slice(0, firstPageExperiences),
-        education: data.education.slice(0, firstPageEducations),
-        projects: data.projects.slice(0, firstPageProjects)
+    // Add experiences to the first page
+    const firstPageExperiences = data.experience.slice(0, MAX_EXPERIENCES_PER_PAGE);
+    currentPage.experiences = firstPageExperiences;
+    
+    // Add projects to the first page
+    // Make sure we don't split projects across pages
+    const firstPageProjects = data.projects.slice(0, MAX_PROJECTS_PER_PAGE);
+    
+    // Only add projects if they fit entirely
+    if (firstPageProjects.length > 0) {
+      currentPage.projects = firstPageProjects;
+    }
+    
+    // Special case for education entries
+    // Ensure all education entries stay on a single page
+    const educationEntries = [...data.education];
+    
+    // Process education entries one by one
+    for (let i = 0; i < educationEntries.length; i++) {
+      const entry = educationEntries[i];
+      
+      // Calculate this entry's complexity to determine if it might need more space
+      const entryComplexity = (entry.details?.length || 0) + 
+                             (entry.degree.length > 50 ? 1 : 0) + 
+                             (entry.institution.length > 30 ? 1 : 0);
+      
+      // Education entries with long details or long degree/institution names
+      // should be placed on their own page if they would make the current page too full
+      const wouldExceedPageCapacity = currentPage.education.length >= MAX_EDUCATIONS_PER_PAGE || 
+                                    (currentPage.education.length > 0 && entryComplexity > 3);
+      
+      // If this entry would push us over the page limit, start a new page
+      if (wouldExceedPageCapacity) {
+        // Add current page to pages array
+        pagesArray.push(currentPage);
+        
+        // Start a new page with just this education entry
+        currentPage = {
+          experiences: [],
+          education: [entry],
+          projects: []
+        };
+      } else {
+        // Add to current page
+        currentPage.education.push(entry);
       }
-    ];
+    }
     
-    // Calculate remaining content
-    let remainingExperiences = totalExperiences - firstPageExperiences;
-    let remainingEducations = totalEducations - firstPageEducations;
-    let remainingProjects = totalProjects - firstPageProjects;
+    // Add the last page if it has content
+    if (currentPage.education.length > 0 || 
+        currentPage.experiences.length > 0 || 
+        currentPage.projects.length > 0) {
+      pagesArray.push(currentPage);
+    }
     
-    // Add additional pages as needed
-    while (remainingExperiences > 0 || remainingEducations > 0 || remainingProjects > 0) {
-      // Create a new page
-      const newPage: any = {
-        experiences: [],
+    // Handle any remaining experiences and projects
+    const remainingExperiences = data.experience.slice(MAX_EXPERIENCES_PER_PAGE);
+    const remainingProjects = data.projects.slice(MAX_PROJECTS_PER_PAGE);
+    
+    if (remainingExperiences.length > 0 || remainingProjects.length > 0) {
+      // Create a final page for remaining content
+      const finalPage: PageData = {
+        experiences: remainingExperiences.length > 0 ? 
+                    remainingExperiences.slice(0, MAX_EXPERIENCES_PER_PAGE) : [],
         education: [],
-        projects: []
+        projects: remainingProjects.length > 0 ? 
+                 remainingProjects.slice(0, MAX_PROJECTS_PER_PAGE) : []
       };
       
-      // Priority for remaining education entries - always add these first to continuation pages
-      if (remainingEducations > 0) {
-        const pageEducations = Math.min(remainingEducations, MAX_EDUCATIONS_PER_PAGE);
-        const startEducation = totalEducations - remainingEducations;
-        
-        newPage.education = data.education.slice(startEducation, startEducation + pageEducations);
-        remainingEducations -= pageEducations;
-      }
-      
-      // Only add experiences on continuation pages if we have room after education
-      // This prevents experiences from appearing on education continuation pages
-      if (remainingExperiences > 0 && newPage.education.length < MAX_EDUCATIONS_PER_PAGE) {
-        const availableSlots = MAX_EDUCATIONS_PER_PAGE - newPage.education.length;
-        const pageExperiences = Math.min(remainingExperiences, availableSlots);
-        
-        if (pageExperiences > 0) {
-          const startExperience = totalExperiences - remainingExperiences;
-          newPage.experiences = data.experience.slice(startExperience, startExperience + pageExperiences);
-          remainingExperiences -= pageExperiences;
-        }
-      }
-      
-      // Only add projects if we've completed all education entries
-      // This keeps projects from appearing on education continuation pages
-      if (remainingProjects > 0 && remainingEducations === 0) {
-        const pageProjects = Math.min(remainingProjects, MAX_PROJECTS_PER_PAGE);
-        const startProject = totalProjects - remainingProjects;
-        
-        newPage.projects = data.projects.slice(startProject, startProject + pageProjects);
-        remainingProjects -= pageProjects;
-      }
-      
-      // Add the new page if it has any content
-      if (newPage.education.length > 0 || newPage.experiences.length > 0 || newPage.projects.length > 0) {
-        pagesArray.push(newPage);
+      // Only add the page if it actually has content
+      if (finalPage.experiences.length > 0 || finalPage.projects.length > 0) {
+        pagesArray.push(finalPage);
       }
     }
     
@@ -233,7 +253,7 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
           )}
 
           {/* Right content area - always present */}
-          <div className={`w-full ${pageIndex === 0 ? 'md:w-2/3' : ''} bg-[#f7f3e8] p-6 h-full overflow-hidden`}>
+          <div className={`w-full ${pageIndex === 0 ? 'md:w-2/3' : ''} bg-[#f7f3e8] p-6 h-full overflow-hidden flex flex-col`}>
             {/* For pages after the first one, add a header */}
             {pageIndex > 0 && (
               <div className="mb-4 pb-2 border-b border-[#1e4d92]">
@@ -306,7 +326,7 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
                 
                 {page.education.map((edu, index) => (
                   <div key={index} className="mb-6">
-                    <h3 className="text-lg font-bold">{edu.degree}, {edu.institution}</h3>
+                    <h3 className="text-lg font-bold break-words">{edu.degree}, {edu.institution}</h3>
                     <p className="text-sm italic mb-2">{edu.location} ⋅ {edu.startDate} - {edu.endDate}</p>
                     {edu.grade && <p className="mb-1">Grade: {edu.grade}</p>}
                     
