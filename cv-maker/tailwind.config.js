@@ -5,7 +5,15 @@ module.exports = {
     "./public/index.html"
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        brand: {
+          primary: '#1e4d92',
+          light: '#2a5ca8',
+          dark: '#183e77',
+        }
+      }
+    },
   },
   plugins: [],
   mode: 'jit',
