@@ -16,6 +16,9 @@ function App() {
     return savedSection || 'about';
   });
   
+  // For mobile view toggle between edit form and preview
+  const [mobileView, setMobileView] = useState<'form' | 'preview'>('form');
+  
   const [progress, setProgress] = useState<number>(20);
   
   // Initialize with data from localStorage if available, otherwise use sampleData
@@ -619,11 +622,32 @@ function App() {
             </div>
           </header>
 
+          {/* Mobile View Toggle - Only visible on mobile */}
+          <div className="md:hidden bg-gray-200 p-2 flex">
+            <button
+              onClick={() => setMobileView('form')}
+              className={`flex-1 py-2 px-4 rounded-l-lg ${
+                mobileView === 'form' ? 'bg-brand-primary text-white' : 'bg-gray-300'
+              }`}
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => setMobileView('preview')}
+              className={`flex-1 py-2 px-4 rounded-r-lg ${
+                mobileView === 'preview' ? 'bg-brand-primary text-white' : 'bg-gray-300'
+              }`}
+            >
+              Preview
+            </button>
+          </div>
+
           <div className="flex flex-1 overflow-hidden">
-            {/* Left Sidebar Navigation */}
-            <nav className="w-20 bg-white shadow-md flex flex-col items-center py-6">
+            {/* Left Sidebar Navigation - Desktop: vertical, Mobile: horizontal */}
+            <div className="hidden md:flex md:w-20 bg-white shadow-md md:flex-col items-center py-6">
+              {/* Desktop vertical sidebar - only visible on desktop */}
               <div 
-                className={`w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer ${activeSection === 'about' ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className="w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer hidden md:flex"
                 onClick={() => setActiveSection('about')}
               >
                 <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -633,7 +657,7 @@ function App() {
               </div>
               
               <div 
-                className={`w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer ${activeSection === 'education' ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className="w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer hidden md:flex"
                 onClick={() => setActiveSection('education')}
               >
                 <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -644,7 +668,7 @@ function App() {
               </div>
               
               <div 
-                className={`w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer ${activeSection === 'experience' ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className="w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer hidden md:flex"
                 onClick={() => setActiveSection('experience')}
               >
                 <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -654,7 +678,7 @@ function App() {
               </div>
               
               <div 
-                className={`w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer ${activeSection === 'projects' ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className="w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer hidden md:flex"
                 onClick={() => setActiveSection('projects')}
               >
                 <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -664,7 +688,7 @@ function App() {
               </div>
               
               <div 
-                className={`w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer ${activeSection === 'skills' ? 'bg-brand-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className="w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer hidden md:flex"
                 onClick={() => setActiveSection('skills')}
               >
                 <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -672,10 +696,66 @@ function App() {
                 </svg>
                 Skills
               </div>
-            </nav>
+            </div>
+
+            {/* Mobile horizontal navigation - only shown when form view is active */}
+            {mobileView === 'form' && (
+              <div className="md:hidden w-full flex overflow-x-auto py-2 bg-white shadow-sm">
+                <div 
+                  className={`min-w-[80px] flex flex-col items-center justify-center py-2 px-4 text-xs cursor-pointer ${activeSection === 'about' ? 'text-brand-primary font-bold' : 'text-gray-600'}`}
+                  onClick={() => setActiveSection('about')}
+                >
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  About
+                </div>
+                
+                <div 
+                  className={`min-w-[80px] flex flex-col items-center justify-center py-2 px-4 text-xs cursor-pointer ${activeSection === 'education' ? 'text-brand-primary font-bold' : 'text-gray-600'}`}
+                  onClick={() => setActiveSection('education')}
+                >
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                    <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                  </svg>
+                  Education
+                </div>
+                
+                <div 
+                  className={`min-w-[80px] flex flex-col items-center justify-center py-2 px-4 text-xs cursor-pointer ${activeSection === 'experience' ? 'text-brand-primary font-bold' : 'text-gray-600'}`}
+                  onClick={() => setActiveSection('experience')}
+                >
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Experience
+                </div>
+                
+                <div 
+                  className={`min-w-[80px] flex flex-col items-center justify-center py-2 px-4 text-xs cursor-pointer ${activeSection === 'projects' ? 'text-brand-primary font-bold' : 'text-gray-600'}`}
+                  onClick={() => setActiveSection('projects')}
+                >
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                  </svg>
+                  Projects
+                </div>
+                
+                <div 
+                  className={`min-w-[80px] flex flex-col items-center justify-center py-2 px-4 text-xs cursor-pointer ${activeSection === 'skills' ? 'text-brand-primary font-bold' : 'text-gray-600'}`}
+                  onClick={() => setActiveSection('skills')}
+                >
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Skills
+                </div>
+              </div>
+            )}
 
             {/* Middle Section - Form Fields */}
-            <div className="w-1/4 bg-white p-6 overflow-y-auto border-r">
+            <div className={`w-full md:w-1/4 bg-white p-4 md:p-6 overflow-y-auto border-r ${mobileView === 'preview' ? 'hidden' : 'block'} md:block`}>
               {activeSection === 'about' && (
                 <div>
                   <div className="flex justify-between items-center mb-4">
@@ -1041,13 +1121,34 @@ function App() {
             </div>
 
             {/* Right Section - CV Preview */}
-            <div className="w-1/2 bg-gray-100 p-6 overflow-y-auto">
+            <div className={`w-full md:w-1/2 bg-gray-100 p-4 md:p-6 overflow-y-auto ${mobileView === 'form' ? 'hidden' : 'block'} md:block`}>
               {/* Render the CV template with current data */}
               <div className="mx-auto max-w-3xl" ref={cvTemplateRef}>
                 <CVTemplate data={cvData} />
               </div>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* Auto-save notification */}
+      {notification.show && (
+        <div 
+          className={`fixed bottom-4 right-4 px-4 py-2 rounded shadow-md transition-opacity duration-300 flex items-center
+            ${notification.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 
+              notification.type === 'info' ? 'bg-blue-100 border border-blue-400 text-blue-700' :
+              'bg-red-100 border border-red-400 text-red-700'}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            {notification.type === 'success' ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            ) : notification.type === 'info' ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            )}
+          </svg>
+          {notification.message}
         </div>
       )}
       
@@ -1477,27 +1578,6 @@ function App() {
               </button>
             </div>
           </div>
-        </div>
-      )}
-      
-      {/* Auto-save notification */}
-      {notification.show && (
-        <div 
-          className={`fixed bottom-4 right-4 px-4 py-2 rounded shadow-md transition-opacity duration-300 flex items-center
-            ${notification.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 
-              notification.type === 'info' ? 'bg-blue-100 border border-blue-400 text-blue-700' :
-              'bg-red-100 border border-red-400 text-red-700'}`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            {notification.type === 'success' ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            ) : notification.type === 'info' ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            )}
-          </svg>
-          {notification.message}
         </div>
       )}
     </div>
