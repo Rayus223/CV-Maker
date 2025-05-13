@@ -61,14 +61,12 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
     // Initialize first page
     const firstPageExperiences = Math.min(totalExperiences, MAX_EXPERIENCES_PER_PAGE);
     const firstPageEducations = Math.min(totalEducations, MAX_EDUCATIONS_PER_PAGE);
-    const firstPageProjects = totalProjects > 0 && firstPageExperiences < MAX_EXPERIENCES_PER_PAGE && firstPageEducations < MAX_EDUCATIONS_PER_PAGE 
-      ? Math.min(totalProjects, MAX_PROJECTS_PER_PAGE) 
-      : 0;
+    const firstPageProjects = Math.min(totalProjects, MAX_PROJECTS_PER_PAGE);
 
     const pagesArray = [
       {
         experiences: data.experience.slice(0, firstPageExperiences),
-        educations: data.education.slice(0, firstPageEducations),
+        education: data.education.slice(0, firstPageEducations),
         projects: data.projects.slice(0, firstPageProjects)
       }
     ];
@@ -80,28 +78,49 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
     
     // Add additional pages as needed
     while (remainingExperiences > 0 || remainingEducations > 0 || remainingProjects > 0) {
-      const pageExperiences = Math.min(remainingExperiences, MAX_EXPERIENCES_PER_PAGE);
-      const startExperience = totalExperiences - remainingExperiences;
+      // Create a new page
+      const newPage: any = {
+        experiences: [],
+        education: [],
+        projects: []
+      };
       
-      const pageEducations = pageExperiences < MAX_EXPERIENCES_PER_PAGE 
-        ? Math.min(remainingEducations, MAX_EDUCATIONS_PER_PAGE) 
-        : 0;
-      const startEducation = totalEducations - remainingEducations;
+      // Priority for remaining education entries - always add these first to continuation pages
+      if (remainingEducations > 0) {
+        const pageEducations = Math.min(remainingEducations, MAX_EDUCATIONS_PER_PAGE);
+        const startEducation = totalEducations - remainingEducations;
+        
+        newPage.education = data.education.slice(startEducation, startEducation + pageEducations);
+        remainingEducations -= pageEducations;
+      }
       
-      const pageProjects = pageExperiences < MAX_EXPERIENCES_PER_PAGE && pageEducations < MAX_EDUCATIONS_PER_PAGE
-        ? Math.min(remainingProjects, MAX_PROJECTS_PER_PAGE)
-        : 0;
-      const startProject = totalProjects - remainingProjects;
+      // Only add experiences on continuation pages if we have room after education
+      // This prevents experiences from appearing on education continuation pages
+      if (remainingExperiences > 0 && newPage.education.length < MAX_EDUCATIONS_PER_PAGE) {
+        const availableSlots = MAX_EDUCATIONS_PER_PAGE - newPage.education.length;
+        const pageExperiences = Math.min(remainingExperiences, availableSlots);
+        
+        if (pageExperiences > 0) {
+          const startExperience = totalExperiences - remainingExperiences;
+          newPage.experiences = data.experience.slice(startExperience, startExperience + pageExperiences);
+          remainingExperiences -= pageExperiences;
+        }
+      }
       
-      pagesArray.push({
-        experiences: pageExperiences > 0 ? data.experience.slice(startExperience, startExperience + pageExperiences) : [],
-        educations: pageEducations > 0 ? data.education.slice(startEducation, startEducation + pageEducations) : [],
-        projects: pageProjects > 0 ? data.projects.slice(startProject, startProject + pageProjects) : []
-      });
+      // Only add projects if we've completed all education entries
+      // This keeps projects from appearing on education continuation pages
+      if (remainingProjects > 0 && remainingEducations === 0) {
+        const pageProjects = Math.min(remainingProjects, MAX_PROJECTS_PER_PAGE);
+        const startProject = totalProjects - remainingProjects;
+        
+        newPage.projects = data.projects.slice(startProject, startProject + pageProjects);
+        remainingProjects -= pageProjects;
+      }
       
-      remainingExperiences -= pageExperiences;
-      remainingEducations -= pageEducations;
-      remainingProjects -= pageProjects;
+      // Add the new page if it has any content
+      if (newPage.education.length > 0 || newPage.experiences.length > 0 || newPage.projects.length > 0) {
+        pagesArray.push(newPage);
+      }
     }
     
     return {
@@ -225,7 +244,9 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
             {/* Work Experience */}
             {page.experiences.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-xl uppercase font-bold text-[#1e4d92] border-b border-[#1e4d92] pb-1 mb-4">Work Experience</h2>
+                <h2 className="text-xl uppercase font-bold text-[#1e4d92] border-b border-[#1e4d92] pb-1 mb-4">
+                  {pageIndex > 0 && page.experiences.length > 0 ? 'Work Experience (Continued)' : 'Work Experience'}
+                </h2>
                 
                 {page.experiences.map((exp, index) => (
                   <div key={index} className="mb-6">
@@ -252,9 +273,11 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
             )}
             
             {/* Projects Section */}
-            {page.projects.length > 0 && (
+            {page.projects && page.projects.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-xl uppercase font-bold text-[#1e4d92] border-b border-[#1e4d92] pb-1 mb-4">Projects</h2>
+                <h2 className="text-xl uppercase font-bold text-[#1e4d92] border-b border-[#1e4d92] pb-1 mb-4">
+                  {pageIndex > 0 && page.projects.length > 0 ? 'Projects (Continued)' : 'Projects'}
+                </h2>
                 
                 {page.projects.map((project, index) => (
                   <div key={index} className="mb-6">
@@ -275,11 +298,13 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
             )}
             
             {/* Education */}
-            {page.educations.length > 0 && (
+            {page.education && page.education.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-xl uppercase font-bold text-[#1e4d92] border-b border-[#1e4d92] pb-1 mb-4">Education</h2>
+                <h2 className="text-xl uppercase font-bold text-[#1e4d92] border-b border-[#1e4d92] pb-1 mb-4">
+                  {pageIndex > 0 && page.education.length > 0 ? 'Education (Continued)' : 'Education'}
+                </h2>
                 
-                {page.educations.map((edu, index) => (
+                {page.education.map((edu, index) => (
                   <div key={index} className="mb-6">
                     <h3 className="text-lg font-bold">{edu.degree}, {edu.institution}</h3>
                     <p className="text-sm italic mb-2">{edu.location} ⋅ {edu.startDate} - {edu.endDate}</p>
