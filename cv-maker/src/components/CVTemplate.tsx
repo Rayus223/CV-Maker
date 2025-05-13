@@ -257,7 +257,7 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
             {/* For pages after the first one, add a header */}
             {pageIndex > 0 && (
               <div className="mb-4 pb-2 border-b border-[#1e4d92]">
-                <h1 className="text-xl font-bold text-[#1e4d92]">{data.firstName} {data.lastName} - Continued</h1>
+                <h1 className="text-xl font-bold text-[#1e4d92]">{data.firstName} {data.lastName}</h1>
               </div>
             )}
 
@@ -265,7 +265,7 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
             {page.experiences.length > 0 && (
               <div className="mb-8">
                 <h2 className="text-xl uppercase font-bold text-[#1e4d92] border-b border-[#1e4d92] pb-1 mb-4">
-                  {pageIndex > 0 && page.experiences.length > 0 ? 'Work Experience (Continued)' : 'Work Experience'}
+                  Work Experience
                 </h2>
                 
                 {page.experiences.map((exp, index) => (
@@ -296,7 +296,7 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
             {page.projects && page.projects.length > 0 && (
               <div className="mb-8">
                 <h2 className="text-xl uppercase font-bold text-[#1e4d92] border-b border-[#1e4d92] pb-1 mb-4">
-                  {pageIndex > 0 && page.projects.length > 0 ? 'Projects (Continued)' : 'Projects'}
+                  Projects
                 </h2>
                 
                 {page.projects.map((project, index) => (
@@ -321,7 +321,7 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
             {page.education && page.education.length > 0 && (
               <div className="mb-8">
                 <h2 className="text-xl uppercase font-bold text-[#1e4d92] border-b border-[#1e4d92] pb-1 mb-4">
-                  {pageIndex > 0 && page.education.length > 0 ? 'Education (Continued)' : 'Education'}
+                  Education
                 </h2>
                 
                 {page.education.map((edu, index) => (
