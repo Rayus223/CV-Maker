@@ -643,114 +643,116 @@ function App() {
           </div>
 
           <div className="flex flex-1 overflow-hidden">
-            {/* Left Sidebar Navigation - Desktop: vertical, Mobile: horizontal */}
-            <div className="hidden md:flex md:w-20 bg-white shadow-md md:flex-col items-center py-6">
-              {/* Desktop vertical sidebar - only visible on desktop */}
-              <div 
-                className="w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer hidden md:flex"
-                onClick={() => setActiveSection('about')}
-              >
-                <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                About
-              </div>
-              
-              <div 
-                className="w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer hidden md:flex"
-                onClick={() => setActiveSection('education')}
-              >
-                <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 14l9-5-9-5-9 5 9 5z" />
-                  <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998a12.078 12.078 0 01.665-6.479L12 14z" />
-                </svg>
-                Education
-              </div>
-              
-              <div 
-                className="w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer hidden md:flex"
-                onClick={() => setActiveSection('experience')}
-              >
-                <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                Experience
-              </div>
-              
-              <div 
-                className="w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer hidden md:flex"
-                onClick={() => setActiveSection('projects')}
-              >
-                <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                </svg>
-                Projects
-              </div>
-              
-              <div 
-                className="w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer hidden md:flex"
-                onClick={() => setActiveSection('skills')}
-              >
-                <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Skills
-              </div>
-            </div>
-
-            {/* Mobile vertical navigation - only shown when form view is active */}
-            {mobileView === 'form' && (
-              <div className="md:hidden fixed left-0 top-20 flex flex-col bg-white shadow-md rounded-r-lg z-10 border-r border-gray-200">
+            {/* Left Sidebar Navigation - Combined for Desktop and Mobile */}
+            <div className="flex-shrink-0 bg-white shadow-md">
+              {/* Desktop vertical sidebar with text - only visible on desktop */}
+              <div className="hidden md:flex md:flex-col md:w-20 items-center py-6">
                 <div 
-                  className={`p-3 cursor-pointer ${activeSection === 'about' ? 'text-brand-primary border-l-2 border-brand-primary bg-blue-50' : 'text-gray-500 border-l-2 border-transparent'}`}
+                  className={`w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer ${activeSection === 'about' ? 'text-brand-primary font-bold' : 'text-gray-600'}`}
                   onClick={() => setActiveSection('about')}
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
+                  About
                 </div>
                 
                 <div 
-                  className={`p-3 cursor-pointer ${activeSection === 'education' ? 'text-brand-primary border-l-2 border-brand-primary bg-blue-50' : 'text-gray-500 border-l-2 border-transparent'}`}
+                  className={`w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer ${activeSection === 'education' ? 'text-brand-primary font-bold' : 'text-gray-600'}`}
                   onClick={() => setActiveSection('education')}
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M12 14l9-5-9-5-9 5 9 5z" />
                     <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998a12.078 12.078 0 01.665-6.479L12 14z" />
                   </svg>
+                  Education
                 </div>
                 
                 <div 
-                  className={`p-3 cursor-pointer ${activeSection === 'experience' ? 'text-brand-primary border-l-2 border-brand-primary bg-blue-50' : 'text-gray-500 border-l-2 border-transparent'}`}
+                  className={`w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer ${activeSection === 'experience' ? 'text-brand-primary font-bold' : 'text-gray-600'}`}
                   onClick={() => setActiveSection('experience')}
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
+                  Experience
                 </div>
                 
                 <div 
-                  className={`p-3 cursor-pointer ${activeSection === 'projects' ? 'text-brand-primary border-l-2 border-brand-primary bg-blue-50' : 'text-gray-500 border-l-2 border-transparent'}`}
+                  className={`w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer ${activeSection === 'projects' ? 'text-brand-primary font-bold' : 'text-gray-600'}`}
                   onClick={() => setActiveSection('projects')}
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
                   </svg>
+                  Projects
                 </div>
                 
                 <div 
-                  className={`p-3 cursor-pointer ${activeSection === 'skills' ? 'text-brand-primary border-l-2 border-brand-primary bg-blue-50' : 'text-gray-500 border-l-2 border-transparent'}`}
+                  className={`w-16 h-16 rounded-full mb-6 flex flex-col items-center justify-center text-xs cursor-pointer ${activeSection === 'skills' ? 'text-brand-primary font-bold' : 'text-gray-600'}`}
                   onClick={() => setActiveSection('skills')}
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
+                  Skills
                 </div>
               </div>
-            )}
+
+              {/* Mobile vertical sidebar without text - only visible on mobile */}
+              {mobileView === 'form' && (
+                <div className="md:hidden flex flex-col w-12 border-r border-gray-200">
+                  <div 
+                    className={`p-3 cursor-pointer border-l-2 ${activeSection === 'about' ? 'text-brand-primary border-brand-primary bg-blue-50' : 'text-gray-500 border-transparent'}`}
+                    onClick={() => setActiveSection('about')}
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 cursor-pointer border-l-2 ${activeSection === 'education' ? 'text-brand-primary border-brand-primary bg-blue-50' : 'text-gray-500 border-transparent'}`}
+                    onClick={() => setActiveSection('education')}
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                      <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998a12.078 12.078 0 01.665-6.479L12 14z" />
+                    </svg>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 cursor-pointer border-l-2 ${activeSection === 'experience' ? 'text-brand-primary border-brand-primary bg-blue-50' : 'text-gray-500 border-transparent'}`}
+                    onClick={() => setActiveSection('experience')}
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 cursor-pointer border-l-2 ${activeSection === 'projects' ? 'text-brand-primary border-brand-primary bg-blue-50' : 'text-gray-500 border-transparent'}`}
+                    onClick={() => setActiveSection('projects')}
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                    </svg>
+                  </div>
+                  
+                  <div 
+                    className={`p-3 cursor-pointer border-l-2 ${activeSection === 'skills' ? 'text-brand-primary border-brand-primary bg-blue-50' : 'text-gray-500 border-transparent'}`}
+                    onClick={() => setActiveSection('skills')}
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Middle Section - Form Fields */}
-            <div className={`w-full md:w-1/4 bg-white p-4 md:p-6 overflow-y-auto border-r ${mobileView === 'preview' ? 'hidden' : 'block'} md:block`}>
+            <div className={`flex-1 bg-white p-4 md:p-6 overflow-y-auto border-r ${mobileView === 'preview' ? 'hidden' : 'block'} md:block`}>
               {activeSection === 'about' && (
                 <div>
                   <div className="flex justify-between items-center mb-4">
