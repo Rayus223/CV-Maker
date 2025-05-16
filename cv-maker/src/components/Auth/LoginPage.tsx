@@ -16,8 +16,21 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:5000/api/auth/google';
+  const handleGoogleLogin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // Create a form element
+    const form = document.createElement('form');
+    form.method = 'GET';
+    form.action = 'http://localhost:5000/api/auth/google';
+    form.target = '_self';
+    
+    // Append to body and submit
+    document.body.appendChild(form);
+    form.submit();
+    
+    // Clean up
+    document.body.removeChild(form);
   };
 
   return (

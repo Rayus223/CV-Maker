@@ -21,7 +21,7 @@ const Dashboard: React.FC = () => {
             </button>
           </div>
         </div>
-      </header>
+        </header>
 
       {/* Main content */}
       <main>

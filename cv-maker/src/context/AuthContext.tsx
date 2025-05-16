@@ -62,7 +62,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const response = await fetch('http://localhost:5000/api/users/current', {
           headers: {
             'Authorization': storedToken
-          }
+          },
+          credentials: 'include' // Important for cookies
         });
 
         if (response.ok) {
@@ -71,11 +72,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setIsAuthenticated(true);
         } else {
           // If token is invalid, clear storage
+          console.error('Invalid token or authentication error:', response.status);
           localStorage.removeItem('token');
           setToken(null);
         }
       } catch (err) {
         console.error('Authentication error:', err);
+        // Clear invalid token on error
+        localStorage.removeItem('token');
+        setToken(null);
       } finally {
         setLoading(false);
       }
@@ -95,6 +100,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ email, password })
       });
 
@@ -112,7 +118,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userResponse = await fetch('http://localhost:5000/api/users/current', {
         headers: {
           'Authorization': data.token
-        }
+        },
+        credentials: 'include'
       });
 
       if (userResponse.ok) {
@@ -139,6 +146,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ name, email, password })
       });
 
