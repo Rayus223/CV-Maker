@@ -1,4 +1,5 @@
 import React from 'react';
+import DefaultTemplate from '../components/templates/DefaultTemplate';
 import RedAccentTemplate from '../components/templates/RedAccentTemplate';
 
 export interface Template {
@@ -14,22 +15,22 @@ export interface Template {
 // Define available templates
 const templates: Template[] = [
   {
-    id: 'red-accent',
+    id: 'default',
     name: 'Professional Template',
     description: 'Clean and modern design for business professionals.',
-    thumbnail: '/templates/red-accent-thumbnail.png',
+    thumbnail: '/image/Thumbnail1.png',
+    popular: true,
+    isPremium: false,
+    component: DefaultTemplate
+  },
+  {
+    id: 'red-accent',
+    name: 'Modern Minimal',
+    description: 'A minimalist design focusing on clarity and simplicity.',
+    thumbnail: '/image/Thumbnail2.png',
     popular: true,
     isPremium: false,
     component: RedAccentTemplate
-  },
-  {
-    id: 'modern-minimal',
-    name: 'Modern Minimal',
-    description: 'A minimalist design focusing on clarity and simplicity.',
-    thumbnail: '/templates/modern-minimal-thumbnail.png',
-    popular: true,
-    isPremium: false,
-    component: RedAccentTemplate // Currently using RedAccent as placeholder
   },
   {
     id: 'creative-portfolio',
@@ -55,9 +56,13 @@ export const getTemplate = (id: string) => {
   return template ? template.component : null;
 };
 
+// Get the default template component for "Create CV" button
+export const getDefaultTemplate = () => templates[0].component;
+
 export default {
   getTemplates,
   getTemplateById,
   getFeaturedTemplates,
-  getTemplate
+  getTemplate,
+  getDefaultTemplate
 }; 
