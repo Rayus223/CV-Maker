@@ -9,7 +9,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 // Validate critical environment variables
-const requiredEnvVars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'JWT_SECRET'];
+const requiredEnvVars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'JWT_SECRET', 'EMAIL_USER', 'EMAIL_PASSWORD'];
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingVars.length > 0) {
@@ -82,6 +82,7 @@ app.use((err, req, res, next) => {
 // Routes
 app.use('/api/users', require('./routes/users'));
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/verify', require('./routes/emailVerification'));
 
 // Simple test route
 app.get('/', (req, res) => {

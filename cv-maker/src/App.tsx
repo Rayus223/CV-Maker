@@ -1118,10 +1118,23 @@ function App() {
             </div>
 
             {/* Right Section - CV Preview */}
-            <div className={`w-full md:w-1/2 bg-gray-100 p-4 md:p-6 overflow-y-auto ${mobileView === 'form' ? 'hidden' : 'block'} md:block`}>
-              {/* Render the CV template with current data */}
-              <div className="mx-auto max-w-3xl" ref={cvTemplateRef}>
-                <CVTemplate data={cvData} />
+            <div className={`w-full md:w-1/2 bg-gray-100 p-4 md:p-6 overflow-y-auto overflow-x-hidden ${mobileView === 'form' ? 'hidden' : 'block'} md:block`}>
+              {/* Wrapper div to ensure centering */}
+              <div className="flex justify-center items-start w-full">
+                {/* Render the CV template with current data */}
+                <div className="transform-gpu" 
+                  style={mobileView === 'preview' ? { 
+                    transform: 'scale(0.45)',
+                    transformOrigin: 'top center',
+                    width: '210mm',
+                    padding: '0 20px'
+                  } : {
+                    maxWidth: '210mm',
+                    margin: '0 auto'
+                  }} 
+                  ref={cvTemplateRef}>
+                  <CVTemplate data={cvData} />
+                </div>
               </div>
             </div>
           </div>

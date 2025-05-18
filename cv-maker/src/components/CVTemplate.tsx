@@ -154,7 +154,7 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
       {pages.map((page, pageIndex) => (
         <div 
           key={pageIndex}
-          className="w-full bg-white shadow-lg flex flex-col md:flex-row overflow-hidden print:break-after-page"
+          className="w-full bg-white shadow-lg flex flex-row overflow-hidden print:break-after-page"
           style={{ 
             height: '297mm', // A4 height in mm
             width: '210mm',  // A4 width in mm
@@ -166,7 +166,7 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
         >
           {/* Left sidebar - only on first page */}
           {pageIndex === 0 && (
-            <div className="w-full md:w-1/3 bg-[#1e4d92] text-white p-6 h-full">
+            <div style={{ width: '33.333%' }} className="bg-[#1e4d92] text-white p-6 h-full">
               <div className="mb-6">
                 <h1 className="text-3xl font-bold uppercase">{data.firstName}</h1>
                 <h1 className="text-3xl font-bold uppercase mb-1">{data.lastName}</h1>
@@ -253,7 +253,7 @@ const CVTemplate: React.FC<CVTemplateProps> = ({ data }) => {
           )}
 
           {/* Right content area - always present */}
-          <div className={`w-full ${pageIndex === 0 ? 'md:w-2/3' : ''} bg-[#f7f3e8] p-6 h-full overflow-hidden flex flex-col`}>
+          <div style={{ width: pageIndex === 0 ? '66.667%' : '100%' }} className="bg-[#f7f3e8] p-6 h-full overflow-hidden flex flex-col">
             {/* For pages after the first one, add a header */}
             {pageIndex > 0 && (
               <div className="mb-4 pb-2 border-b border-[#1e4d92]">

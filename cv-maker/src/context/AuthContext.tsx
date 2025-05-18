@@ -5,6 +5,7 @@ interface User {
   id: string;
   name: string;
   email: string;
+  isVerified?: boolean;
 }
 
 // Define the AuthContext type
@@ -135,28 +136,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Register user
+  // Register user - updated to work with the email verification flow
   const register = async (name: string, email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('http://localhost:5000/api/users/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ name, email, password })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
-      }
-
-      // Auto-login after successful registration
+      // With email verification, user should already exist in database with verified email
+      // Just need to login now
       await login(email, password);
     } catch (err: any) {
       setError(err.message || 'Registration failed');
