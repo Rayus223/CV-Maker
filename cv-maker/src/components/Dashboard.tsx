@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import RecentProjectsSidebar from './RecentProjectsSidebar';
@@ -7,17 +7,28 @@ import ImageUploader from './ImageUploader';
 import { CVData, sampleData } from '../types/types';
 import TemplateCard from './TemplateCard';
 import { getFeaturedTemplates } from '../services/templateService';
+import WelcomePopup from './WelcomePopup';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [otherField, setOtherField] = useState<string>(sampleData.otherField || '');
+  const [showWelcome, setShowWelcome] = useState(false);
   
   // Empty projects array for new users
   const recentProjects: CVData['recentProjects'] = [];
 
   // Get featured templates
   const featuredTemplates = getFeaturedTemplates();
+
+  // Check if user is new and show welcome popup
+  useEffect(() => {
+    const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
+    if (!hasSeenWelcome) {
+      setShowWelcome(true);
+      localStorage.setItem('hasSeenWelcome', 'true');
+    }
+  }, []);
 
   const handleProjectClick = (index: number) => {
     // Navigate to project details page or open project in editor
@@ -32,6 +43,13 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      {showWelcome && (
+        <WelcomePopup
+          onClose={() => setShowWelcome(false)}
+          userName={user?.name}
+        />
+      )}
+      
       {/* Header */}
       <header className="bg-white shadow sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
