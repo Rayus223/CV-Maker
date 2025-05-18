@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 interface WelcomePopupProps {
-  onClose: () => void;
+  onClose: (startTour: boolean) => void;
   userName?: string;
 }
 
@@ -61,16 +61,16 @@ const WelcomePopup: React.FC<WelcomePopupProps> = ({ onClose, userName }) => {
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
-              onClick={() => onClose()}
+              onClick={() => onClose(true)}
               className="px-6 py-3 bg-brand-primary text-white rounded-lg hover:bg-brand-dark transition-colors duration-200"
             >
-              Get Started
+              Get Started with Tour
             </button>
             <button
-              onClick={() => onClose()}
+              onClick={() => onClose(false)}
               className="px-6 py-3 text-gray-600 hover:text-gray-900 transition-colors duration-200"
             >
-              Take a Tour Later
+              Skip Tour
             </button>
           </div>
         </div>

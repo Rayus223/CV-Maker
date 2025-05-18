@@ -8,12 +8,14 @@ import { CVData, sampleData } from '../types/types';
 import TemplateCard from './TemplateCard';
 import { getFeaturedTemplates } from '../services/templateService';
 import WelcomePopup from './WelcomePopup';
+import DashboardTour from './DashboardTour';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [otherField, setOtherField] = useState<string>(sampleData.otherField || '');
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   
   // Empty projects array for new users
   const recentProjects: CVData['recentProjects'] = [];
@@ -23,12 +25,14 @@ const Dashboard: React.FC = () => {
 
   // Check if user is new and show welcome popup
   useEffect(() => {
-    const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
-    if (!hasSeenWelcome) {
-      setShowWelcome(true);
-      localStorage.setItem('hasSeenWelcome', 'true');
+    if (user?.id) {
+      const hasSeenWelcome = localStorage.getItem(`hasSeenWelcome_${user.id}`);
+      if (!hasSeenWelcome) {
+        setShowWelcome(true);
+        localStorage.setItem(`hasSeenWelcome_${user.id}`, 'true');
+      }
     }
-  }, []);
+  }, [user?.id]);
 
   const handleProjectClick = (index: number) => {
     // Navigate to project details page or open project in editor
@@ -41,14 +45,26 @@ const Dashboard: React.FC = () => {
     // In a real application, you would update user profile with this image
   };
 
+  const handleWelcomeClose = (startTour: boolean) => {
+    setShowWelcome(false);
+    if (startTour) {
+      setShowTour(true);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       {showWelcome && (
         <WelcomePopup
-          onClose={() => setShowWelcome(false)}
+          onClose={handleWelcomeClose}
           userName={user?.name}
         />
       )}
+
+      <DashboardTour 
+        isOpen={showTour}
+        onClose={() => setShowTour(false)}
+      />
       
       {/* Header */}
       <header className="bg-white shadow sticky top-0 z-10">
@@ -72,12 +88,14 @@ const Dashboard: React.FC = () => {
           <div className="flex flex-col md:flex-row gap-6">
             {/* Left sidebar - Recent Projects */}
             <div className="w-full md:w-1/3 lg:w-1/4">
-              <RecentProjectsSidebar 
-                recentProjects={recentProjects} 
-                onProjectClick={handleProjectClick} 
-              />
+              <div className="recent-projects">
+                <RecentProjectsSidebar 
+                  recentProjects={recentProjects} 
+                  onProjectClick={handleProjectClick} 
+                />
+              </div>
               
-              <div className="mt-6 bg-white p-5 rounded-lg shadow-sm">
+              <div className="mt-6 bg-white p-5 rounded-lg shadow-sm profile-section">
                 <h3 className="text-lg font-medium mb-3">Your Profile</h3>
                 <div className="mb-4">
                   <ImageUploader
@@ -107,7 +125,7 @@ const Dashboard: React.FC = () => {
                   <div className="mt-6 flex flex-wrap justify-center gap-4">
                     <Link
                       to="/cv-editor"
-                      className="px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-brand-primary hover:bg-brand-dark transition-colors duration-200 shadow-sm"
+                      className="create-cv-button px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-brand-primary hover:bg-brand-dark transition-colors duration-200 shadow-sm"
                     >
                       Create New CV
                     </Link>
@@ -122,7 +140,7 @@ const Dashboard: React.FC = () => {
               </div>
               
               {/* Featured templates - E-commerce style */}
-              <div className="bg-white shadow rounded-lg p-6 mb-6">
+              <div className="templates-section bg-white shadow rounded-lg p-6 mb-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">Featured Templates</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {featuredTemplates.map((template) => (
