@@ -7,6 +7,10 @@ export interface CVData {
   phone: string;
   email: string;
   address: string;
+  profileImage?: {
+    url: string;
+    publicId: string;
+  };
   skills: string[];
   links: {
     label: string;
@@ -36,7 +40,21 @@ export interface CVData {
     startDate: string;
     endDate: string;
     link?: string;
+    image?: {
+      url: string;
+      publicId: string;
+    };
   }[];
+  recentProjects: {
+    name: string;
+    description: string;
+    image?: {
+      url: string;
+      publicId: string;
+    };
+    link?: string;
+  }[];
+  otherField?: string;
 }
 
 export const sampleData: CVData = {
@@ -48,6 +66,10 @@ export const sampleData: CVData = {
   phone: "+1-234-871-555-9",
   email: "john@example.com",
   address: "1600 Pennsylvania Ave, Washington DC, United States",
+  profileImage: {
+    url: "https://res.cloudinary.com/demo/image/upload/v1580125392/sample.jpg",
+    publicId: "sample"
+  },
   skills: [
     "C++, C, Python, Bash, PHP",
     "JavaScript, C#, Java, Kotlin, MySQL, PostgreSQL, Visual Basic, R",
@@ -151,7 +173,11 @@ export const sampleData: CVData = {
       technologies: "React, Tailwind CSS, TypeScript",
       startDate: "Jan 2023",
       endDate: "Feb 2023",
-      link: "https://johndoe.com"
+      link: "https://johndoe.com",
+      image: {
+        url: "https://res.cloudinary.com/demo/image/upload/v1580125392/portfolio.jpg",
+        publicId: "portfolio"
+      }
     },
     {
       name: "Task Management App",
@@ -159,7 +185,41 @@ export const sampleData: CVData = {
       technologies: "Node.js, Express, MongoDB, React",
       startDate: "Mar 2022",
       endDate: "Jun 2022",
-      link: "https://github.com/example/task-manager"
+      link: "https://github.com/example/task-manager",
+      image: {
+        url: "https://res.cloudinary.com/demo/image/upload/v1580125392/taskapp.jpg",
+        publicId: "taskapp"
+      }
     }
-  ]
+  ],
+  recentProjects: [
+    {
+      name: "E-commerce Website",
+      description: "Built a full-featured e-commerce platform with product listings, cart, and checkout functionality.",
+      image: {
+        url: "https://res.cloudinary.com/demo/image/upload/v1580125392/ecommerce.jpg",
+        publicId: "ecommerce"
+      },
+      link: "https://github.com/example/ecommerce"
+    },
+    {
+      name: "Weather App",
+      description: "Developed a weather application that provides real-time forecasts based on user location.",
+      image: {
+        url: "https://res.cloudinary.com/demo/image/upload/v1580125392/weather.jpg",
+        publicId: "weather"
+      },
+      link: "https://weather-app-demo.com"
+    },
+    {
+      name: "Blog Platform",
+      description: "Created a content management system for bloggers with markdown support and image uploads.",
+      image: {
+        url: "https://res.cloudinary.com/demo/image/upload/v1580125392/blog.jpg",
+        publicId: "blog"
+      },
+      link: "https://blog-demo.com"
+    }
+  ],
+  otherField: "This is a custom field that can be used for any additional information."
 }; 

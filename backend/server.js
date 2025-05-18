@@ -83,6 +83,7 @@ app.use((err, req, res, next) => {
 app.use('/api/users', require('./routes/users'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/verify', require('./routes/emailVerification'));
+app.use('/api/uploads', require('./routes/uploads'));
 
 // Simple test route
 app.get('/', (req, res) => {
