@@ -37,7 +37,7 @@ const Dashboard: React.FC = () => {
   const handleProjectClick = (index: number) => {
     // Navigate to project details page or open project in editor
     console.log(`Opening project ${index}`);
-    navigate(`/cv-editor?project=${index}`);
+    navigate(`/canva-editor?project=${index}`);
   };
 
   const handleImageUploaded = (imageData: { url: string; publicId: string }) => {
@@ -123,12 +123,12 @@ const Dashboard: React.FC = () => {
                     Create and customize your professional CV. Our easy-to-use platform helps you build a standout resume that gets noticed by employers.
                   </p>
                   <div className="mt-6 flex flex-wrap justify-center gap-4">
-                    <Link
-                      to="/cv-editor"
+                    <button
+                      onClick={() => navigate('/canva-editor?blank=true')}
                       className="create-cv-button px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-brand-primary hover:bg-brand-dark transition-colors duration-200 shadow-sm"
                     >
                       Create New CV
-                    </Link>
+                    </button>
                     <Link
                       to="/templates"
                       className="px-6 py-3 border border-transparent text-base font-medium rounded-md text-brand-primary bg-white border-brand-primary hover:bg-gray-50 transition-colors duration-200 shadow-sm"

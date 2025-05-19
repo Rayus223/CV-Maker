@@ -39,7 +39,7 @@ const TemplatePreview: React.FC = () => {
               Cancel
             </button>
             <button 
-              onClick={() => navigate('/cv-editor', { state: { templateId: id } })} 
+              onClick={() => navigate(`/canva-editor?template=${id}`)} 
               className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-dark"
             >
               Use This Template

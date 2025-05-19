@@ -3,8 +3,35 @@ import { CVData, sampleData } from './types/types';
 import CVTemplate from './components/CVTemplate';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { useLocation, Routes, Route, BrowserRouter } from 'react-router-dom';
+import Dashboard from './components/Dashboard';
+import CanvaEditor from './components/CanvaEditor';
+
+// Define a blank CV object
+const blankCV: CVData = {
+  firstName: '',
+  lastName: '',
+  pronouns: '',
+  title: '',
+  dob: '',
+  phone: '',
+  email: '',
+  address: '',
+  profileImage: undefined,
+  skills: [],
+  links: [],
+  experience: [],
+  education: [],
+  projects: [],
+  recentProjects: [],
+  otherField: '',
+};
 
 function App() {
+  const location = useLocation();
+  // Check for blank param in URL
+  const isBlank = new URLSearchParams(location.search).get('blank') === 'true';
+
   // Initialize with data from localStorage if available, otherwise use default
   const [step, setStep] = useState<'welcome' | 'editor'>(() => {
     const savedStep = localStorage.getItem('cvMakerStep');
@@ -21,8 +48,9 @@ function App() {
   
   const [progress, setProgress] = useState<number>(20);
   
-  // Initialize with data from localStorage if available, otherwise use sampleData
+  // Initialize with blank CV if requested, otherwise use localStorage or sampleData
   const [cvData, setCvData] = useState<CVData>(() => {
+    if (isBlank) return blankCV;
     const savedData = localStorage.getItem('cvMakerData');
     return savedData ? JSON.parse(savedData) : sampleData;
   });
