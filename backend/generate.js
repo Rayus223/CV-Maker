@@ -9,12 +9,12 @@ function generateRandomLetter() {
   return letters[Math.floor(Math.random() * letters.length)];
 }
 
-// Generate and append a letter every second
+// Generate and append a letter on a new line every 100 milliseconds
 setInterval(() => {
-  const letter = generateRandomLetter();
+  const letter = generateRandomLetter() + '\n'; // Add newline character
   fs.appendFile(filePath, letter, (err) => {
     if (err) {
       console.error('Error writing to file:', err);
     }
   });
-}, 100); // interval in milliseconds
+}, 300); // interval in milliseconds
