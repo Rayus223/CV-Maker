@@ -37,3 +37,29 @@
     transform: rotate(360deg);
   }
 }
+
+/* Font declarations for system fonts */
+@font-face {
+  font-family: 'Times New Roman';
+  src: local('Times New Roman');
+}
+
+@font-face {
+  font-family: 'Georgia';
+  src: local('Georgia');
+}
+
+@font-face {
+  font-family: 'Verdana';
+  src: local('Verdana');
+}
+
+@font-face {
+  font-family: 'Arial';
+  src: local('Arial');
+}
+
+@font-face {
+  font-family: 'Courier New';
+  src: local('Courier New');
+}

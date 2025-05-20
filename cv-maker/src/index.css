@@ -18,3 +18,36 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Font family definitions */
+.font-arial {
+  font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+.font-roboto {
+  font-family: 'Roboto', 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+.font-opensans {
+  font-family: 'Open Sans', 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+.font-montserrat {
+  font-family: 'Montserrat', 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+.font-timesnewroman {
+  font-family: 'Times New Roman', Times, serif;
+}
+
+.font-georgia {
+  font-family: Georgia, Times, 'Times New Roman', serif;
+}
+
+.font-verdana {
+  font-family: Verdana, Geneva, Tahoma, sans-serif;
+}
+
+.font-couriernew {
+  font-family: 'Courier New', Courier, monospace;
+}
