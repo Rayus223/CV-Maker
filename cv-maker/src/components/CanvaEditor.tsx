@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CVData, sampleData } from '../types/types';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { DndProvider, useDrag, useDrop, useDragLayer } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import type { XYCoord, DropTargetMonitor, DragSourceMonitor } from 'react-dnd';
 
@@ -81,28 +81,74 @@ const DraggableField = ({
   style: TextStyle;
   onDragEnd: (id: string, x: number, y: number) => void;
 }) => {
-  const [{ isDragging }, drag] = useDrag(() => ({
+  const initialPosition = { x: style.position?.x || 0, y: style.position?.y || 0 };
+  const [position, setPosition] = useState(initialPosition);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  
+  // Update local position when style props change
+  useEffect(() => {
+    if (!isDragging) {
+      setPosition({ x: style.position?.x || 0, y: style.position?.y || 0 });
+    }
+  }, [style.position?.x, style.position?.y]);
+
+  const [{ isDragging }, drag, dragPreview] = useDrag(() => ({
     type: 'field',
-    item: { id, type: 'field' } as DragItem,
-    end: (item: DragItem | undefined, monitor: DragSourceMonitor) => {
-      const delta = monitor.getDifferenceFromInitialOffset() as XYCoord | null;
-      if (delta && item) {
-        const x = Math.round(delta.x);
-        const y = Math.round(delta.y);
-        onDragEnd(item.id, x, y);
+    item: (monitor) => {
+      // Store initial position when drag starts
+      const initialOffset = monitor.getInitialClientOffset();
+      const currentOffset = monitor.getClientOffset();
+      
+      if (initialOffset && currentOffset) {
+        setDragOffset({
+          x: currentOffset.x - initialOffset.x,
+          y: currentOffset.y - initialOffset.y
+        });
       }
+      
+      return { id, type: 'field', initialPosition } as DragItem & { initialPosition: { x: number, y: number } };
     },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }));
+    end: (item, monitor) => {
+      const delta = monitor.getDifferenceFromInitialOffset();
+      if (delta) {
+        onDragEnd(id, delta.x, delta.y);
+      }
+      // Reset drag offset when drag ends
+      setDragOffset({ x: 0, y: 0 });
+    },
+  }), [id, position, style.position]);
 
+  // Handle real-time dragging
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        // Update local position immediately for real-time visual feedback
+        setPosition(prevPos => ({
+          x: prevPos.x + e.movementX,
+          y: prevPos.y + e.movementY
+        }));
+      }
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [isDragging]);
+
+  // Apply current position for real-time visual updates during dragging
   const fieldStyle = {
     position: 'absolute' as const,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.8 : 1,
     cursor: 'move',
-    left: style.position?.x || 0,
-    top: style.position?.y || 0,
+    left: position.x,
+    top: position.y,
     fontFamily: style.fontFamily,
     fontSize: style.fontSize,
     fontWeight: style.fontWeight,
@@ -110,7 +156,10 @@ const DraggableField = ({
     textDecoration: style.textDecoration,
     color: style.color,
     textAlign: style.textAlign,
-    zIndex: style.position?.zIndex || 1,
+    zIndex: isDragging ? 1000 : (style.position?.zIndex || 1), // Ensure dragged element stays on top
+    transition: isDragging ? 'none' : 'opacity 0.2s',
+    boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.1)' : 'none',
+    transform: isDragging ? 'scale(1.02)' : 'scale(1)',
   };
 
   return (
@@ -272,27 +321,61 @@ const CanvaElement: React.FC<CanvaElementProps> = ({
   onCopy,
   onPaste
 }) => {
+  const initialPosition = { x: style.position?.x || 0, y: style.position?.y || 0 };
+  const [position, setPosition] = useState(initialPosition);
+  
+  // Update local position when style props change
+  useEffect(() => {
+    if (!isDragging) {
+      setPosition({ x: style.position?.x || 0, y: style.position?.y || 0 });
+    }
+  }, [style.position?.x, style.position?.y]);
+  
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'field',
-    item: { id, type: 'field' } as DragItem,
-    end: (item: DragItem | undefined, monitor: DragSourceMonitor) => {
+    item: { id, type: 'field', initialPosition } as DragItem & { initialPosition: { x: number, y: number } },
+    end: (item: (DragItem & { initialPosition: { x: number, y: number } }) | undefined, monitor: DragSourceMonitor) => {
       const delta = monitor.getDifferenceFromInitialOffset() as XYCoord | null;
       if (delta && item) {
         const x = Math.round(delta.x);
         const y = Math.round(delta.y);
         onDragEnd(item.id, x, y);
+        
+        // Reset position to match what will come from props after the state update
+        setPosition({ x: item.initialPosition.x + x, y: item.initialPosition.y + y });
       }
     },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }));
+  }), [id, initialPosition]);
+  
+  // Handle real-time dragging
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        // Update local position immediately for real-time visual feedback
+        setPosition(prevPos => ({
+          x: prevPos.x + e.movementX,
+          y: prevPos.y + e.movementY
+        }));
+      }
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [isDragging]);
 
   const elementStyle: React.CSSProperties = {
     position: 'absolute',
-    left: style.position?.x || 0,
-    top: style.position?.y || 0,
-    zIndex: style.position?.zIndex || 1,
+    left: position.x,
+    top: position.y,
+    zIndex: isDragging ? 1000 : (style.position?.zIndex || 1),
     fontFamily: style.fontFamily,
     fontSize: style.fontSize,
     fontWeight: style.fontWeight,
@@ -300,10 +383,13 @@ const CanvaElement: React.FC<CanvaElementProps> = ({
     textDecoration: style.textDecoration,
     color: style.color,
     textAlign: style.textAlign,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.7 : 1,
     cursor: 'move',
     border: isSelected ? '2px solid #3B82F6' : '2px solid transparent',
     padding: '4px',
+    boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.2)' : 'none',
+    transform: isDragging ? 'scale(1.02)' : 'scale(1)',
+    transition: isDragging ? 'none' : 'all 0.2s ease-in-out',
   };
 
   const handleWrapperClick = (e: React.MouseEvent<HTMLDivElement>) => {

@@ -1,11 +1,4 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import LoginPage from './Auth/LoginPage';
-import RegisterPage from './Auth/RegisterPage';
-import Dashboard from './Dashboard';
-import App from '../App';
-import TemplatePreview from './TemplatePreview';
+import React, { useEffect } from 'react';import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';import { useAuth } from '../context/AuthContext';import LoginPage from './Auth/LoginPage';import RegisterPage from './Auth/RegisterPage';import Dashboard from './Dashboard';import App from '../App';import TemplatePreview from './TemplatePreview';import CanvaTextEditor from './CanvaTextEditor';
 
 // OAuth Callback Handler
 const OAuthCallback: React.FC = () => {
@@ -81,6 +74,7 @@ const AppRouter: React.FC = () => {
         <Route path="/auth/callback" element={<OAuthCallback />} />
         <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
         <Route path="/cv-editor" element={<ProtectedRoute element={<App />} />} />
+        <Route path="/canva-editor" element={<ProtectedRoute element={<CanvaTextEditor />} />} />
         <Route path="/templates" element={<ProtectedRoute element={<Dashboard />} />} />
         <Route path="/templates/:id" element={<ProtectedRoute element={<TemplatePreview />} />} />
         <Route path="/" element={<Navigate to="/dashboard" />} />

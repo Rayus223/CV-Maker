@@ -51,3 +51,53 @@ code {
 .font-couriernew {
   font-family: 'Courier New', Courier, monospace;
 }
+
+/* Add styles for drag-and-drop experience */
+.text-box {
+  pointer-events: auto;
+  touch-action: none;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.text-box.dragging {
+  opacity: 0.9;
+  transform: scale(1.02);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  z-index: 9999 !important;
+  user-select: none !important;
+  transition: none !important;
+  cursor: grabbing !important;
+}
+
+.text-box.dragging * {
+  user-select: none !important;
+  pointer-events: none !important;
+}
+
+.text-box.dragging .drag-handle {
+  opacity: 1 !important;
+}
+
+.text-box:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.text-box:hover .drag-handle {
+  opacity: 0.8 !important;
+}
+
+/* Drag handle styling */
+.drag-handle {
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Style the whole document to use grabbing cursor during drag operations */
+body.dragging {
+  cursor: grabbing !important;
+}
