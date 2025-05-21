@@ -14,9 +14,74 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Global cursor style when dragging */
+body.dragging-body-cursor, body.dragging-body-cursor * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+.text-box-wrapper {
+  /* Base style for the draggable wrapper */
+  touch-action: none; /* Important for preventing default touch actions like scrolling */
+  position: absolute; /* Ensures left/top from React state are applied correctly */
+}
+
+.text-box-wrapper.dragging {
+  /* Styles applied when an element is being actively dragged */
+  opacity: 0.85;
+  transform-origin: center center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  z-index: 9999 !important; /* Ensure dragged element is on top */
+  transition: none !important; /* No transitions during active drag for instant feedback */
+}
+
+.text-box-wrapper.dragging .element-content {
+  /* Optionally, make content slightly less interactive during drag */
+  pointer-events: none;
+}
+
+.drag-handle {
+  /* Styling for the visible drag handle */
+  cursor: grab;
+  /* Ensure it is above other content within the text box if needed */
+  position: absolute; 
+  z-index: 10; /* Above element-content */
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.element-content {
+  /* Styling for the actual text content area */
+  background-color: white;
+  border: 1px solid transparent; /* For hover effect or selection */
+  transition: border-color 0.2s ease;
+}
+
+.text-box-wrapper:hover .drag-handle {
+  opacity: 1 !important; /* Make handle fully visible on wrapper hover */
+}
+
+.text-box-wrapper.ring-2 .element-content {
+  border-color: #3B82F6; /* Blue-500 for selected items */
+}
+
+/* Ensure textareas within a dragging element don't interfere */
+.text-box-wrapper.dragging textarea {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+/* Resize Handle */
+.resize-handle {
+  /* Basic styling for a visual resize handle */
+  pointer-events: auto; /* Allow interaction with this handle */
 }
 
 /* Font family definitions */
@@ -50,54 +115,4 @@ code {
 
 .font-couriernew {
   font-family: 'Courier New', Courier, monospace;
-}
-
-/* Add styles for drag-and-drop experience */
-.text-box {
-  pointer-events: auto;
-  touch-action: none;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.text-box.dragging {
-  opacity: 0.9;
-  transform: scale(1.02);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-  z-index: 9999 !important;
-  user-select: none !important;
-  transition: none !important;
-  cursor: grabbing !important;
-}
-
-.text-box.dragging * {
-  user-select: none !important;
-  pointer-events: none !important;
-}
-
-.text-box.dragging .drag-handle {
-  opacity: 1 !important;
-}
-
-.text-box:hover {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.text-box:hover .drag-handle {
-  opacity: 0.8 !important;
-}
-
-/* Drag handle styling */
-.drag-handle {
-  pointer-events: auto;
-  cursor: grab;
-  touch-action: none;
-}
-
-.drag-handle:active {
-  cursor: grabbing;
-}
-
-/* Style the whole document to use grabbing cursor during drag operations */
-body.dragging {
-  cursor: grabbing !important;
 }

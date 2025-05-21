@@ -4,6 +4,7 @@ import { CVData, sampleData } from '../types/types';
 import { DndProvider, useDrag, useDrop, useDragLayer } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import type { XYCoord, DropTargetMonitor, DragSourceMonitor } from 'react-dnd';
+import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 
 interface CanvaEditorProps {
   initialData?: CVData;
@@ -19,6 +20,7 @@ interface TextStyle {
   textDecoration: string;
   color: string;
   textAlign: 'left' | 'center' | 'right' | 'justify';
+  width?: number;
   position?: {
     x: number;
     y: number;
@@ -302,7 +304,7 @@ interface CanvaElementProps {
   isSelected: boolean;
   children: React.ReactNode;
   onClick: (e: React.MouseEvent<HTMLDivElement>) => void;
-  onDragEnd: (id: string, x: number, y: number) => void;
+  onDragEnd: (id: string, xDelta: number, yDelta: number, styleUpdates?: Partial<TextStyle>) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   onCopy: (id: string) => void;
@@ -323,59 +325,25 @@ const CanvaElement: React.FC<CanvaElementProps> = ({
 }) => {
   const initialPosition = { x: style.position?.x || 0, y: style.position?.y || 0 };
   const [position, setPosition] = useState(initialPosition);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0 });
+  const elementRef = useRef<HTMLDivElement>(null);
+  const [mouseDownInside, setMouseDownInside] = useState(false);
   
   // Update local position when style props change
   useEffect(() => {
     if (!isDragging) {
       setPosition({ x: style.position?.x || 0, y: style.position?.y || 0 });
     }
-  }, [style.position?.x, style.position?.y]);
-  
-  const [{ isDragging }, drag] = useDrag(() => ({
-    type: 'field',
-    item: { id, type: 'field', initialPosition } as DragItem & { initialPosition: { x: number, y: number } },
-    end: (item: (DragItem & { initialPosition: { x: number, y: number } }) | undefined, monitor: DragSourceMonitor) => {
-      const delta = monitor.getDifferenceFromInitialOffset() as XYCoord | null;
-      if (delta && item) {
-        const x = Math.round(delta.x);
-        const y = Math.round(delta.y);
-        onDragEnd(item.id, x, y);
-        
-        // Reset position to match what will come from props after the state update
-        setPosition({ x: item.initialPosition.x + x, y: item.initialPosition.y + y });
-      }
-    },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  }), [id, initialPosition]);
-  
-  // Handle real-time dragging
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        // Update local position immediately for real-time visual feedback
-        setPosition(prevPos => ({
-          x: prevPos.x + e.movementX,
-          y: prevPos.y + e.movementY
-        }));
-      }
-    };
+  }, [style.position?.x, style.position?.y, isDragging]);
 
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-    }
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, [isDragging]);
-
-  const elementStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: position.x,
-    top: position.y,
-    zIndex: isDragging ? 1000 : (style.position?.zIndex || 1),
+  // Apply current position for real-time visual updates during dragging
+  const elementStyle = {
+    position: 'absolute' as const,
+    opacity: isDragging ? 0.8 : 1,
+    cursor: 'default', // Change to default since we have dedicated drag handles
+    width: typeof style.width === 'number' ? `${style.width}px` : 'auto',
     fontFamily: style.fontFamily,
     fontSize: style.fontSize,
     fontWeight: style.fontWeight,
@@ -383,19 +351,105 @@ const CanvaElement: React.FC<CanvaElementProps> = ({
     textDecoration: style.textDecoration,
     color: style.color,
     textAlign: style.textAlign,
-    opacity: isDragging ? 0.7 : 1,
-    cursor: 'move',
-    border: isSelected ? '2px solid #3B82F6' : '2px solid transparent',
-    padding: '4px',
-    boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.2)' : 'none',
-    transform: isDragging ? 'scale(1.02)' : 'scale(1)',
-    transition: isDragging ? 'none' : 'all 0.2s ease-in-out',
+    zIndex: isDragging ? 1000 : (style.position?.zIndex || 1), // Ensure dragged element stays on top
+    transition: isDragging ? 'none' : 'opacity 0.2s',
+    boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.1)' : (isSelected ? '0 0 0 2px rgba(59, 130, 246, 0.5)' : 'none'),
   };
+  
+  // Handle the end of dragging to update state with new position
+  const handleDragStop = (e: DraggableEvent, data: DraggableData) => {
+    setIsDragging(false);
+    
+    // Get the canvas dimensions
+    const canvas = elementRef.current?.closest('.cv-canvas');
+    const canvasWidth = canvas?.clientWidth || 800;
+    const canvasHeight = canvas?.clientHeight || 1100;
+    
+    // Get element dimensions
+    const width = elementRef.current?.offsetWidth || 0;
+    const height = elementRef.current?.offsetHeight || 0;
+    
+    // Constrain position within canvas boundaries
+    const x = Math.max(0, Math.min(data.x, canvasWidth - width));
+    const y = Math.max(0, Math.min(data.y, canvasHeight - height));
+    
+    // Update position state
+    setPosition({ x, y });
+    
+    // Calculate deltas from original position
+    const xDelta = x - (style.position?.x || 0);
+    const yDelta = y - (style.position?.y || 0);
+    
+    // Call the parent handler with the deltas
+    onDragEnd(id, xDelta, yDelta);
+    
+    // Show a brief notice
+    const element = document.getElementById('drag-notice');
+    if (element) {
+      element.style.opacity = '1';
+      setTimeout(() => {
+        element.style.opacity = '0';
+      }, 1000);
+    }
+  };
+  
+  // Handle mouse down for resizing
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsResizing(true);
+    setResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: style.width as number || 200,
+    });
+    
+    document.addEventListener('mousemove', handleResizeMouseMove);
+    document.addEventListener('mouseup', handleResizeMouseUp);
+  };
+  
+  // Handle mouse move for resizing
+  const handleResizeMouseMove = (e: MouseEvent) => {
+    if (!isResizing) return;
+    
+    const deltaX = e.clientX - resizeStart.x;
+    const newWidth = Math.max(50, resizeStart.width + deltaX);
+    
+    if (elementRef.current) {
+      elementRef.current.style.width = `${newWidth}px`;
+    }
+  };
+  
+  // Handle mouse up for resizing
+  const handleResizeMouseUp = () => {
+    if (!isResizing) return;
+    
+    setIsResizing(false);
+    
+    // Update width in parent component
+    if (elementRef.current) {
+      const newWidth = elementRef.current.offsetWidth;
+      if (typeof style.width === 'number' && newWidth !== style.width) {
+        // Call parent handler to update the style with width
+        onDragEnd(id, 0, 0, { width: newWidth });
+      }
+    }
+    
+    document.removeEventListener('mousemove', handleResizeMouseMove);
+    document.removeEventListener('mouseup', handleResizeMouseUp);
+  };
+  
+  // Clean up event listeners on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMouseMove);
+      document.removeEventListener('mouseup', handleResizeMouseUp);
+    };
+  }, []);
 
   const handleWrapperClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!e.defaultPrevented) {
-      onClick(e);
-    }
+    onClick(e);
   };
 
   const handleDuplicate = () => {
@@ -414,23 +468,81 @@ const CanvaElement: React.FC<CanvaElementProps> = ({
     onPaste();
   };
 
+  // Define draggable bounds to keep elements on canvas
+  const bounds = {
+    left: 0,
+    top: 0,
+    right: 1000, // set based on canvas width
+    bottom: 1500 // set based on canvas height
+  };
+
+  // Handle mouse down inside the content
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isSelected && e.button === 0) { // Only for left clicks and only when selected
+      setMouseDownInside(true);
+    }
+  };
+  
+  // Handle mouse up event
+  const handleMouseUp = () => {
+    setMouseDownInside(false);
+  };
+  
+  useEffect(() => {
+    // Add global mouse up handler
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   return (
-    <div id={id} ref={drag} style={elementStyle} onClick={handleWrapperClick} className="relative group">
-      {isSelected && (
-        <FloatingToolbar
-          onDuplicate={handleDuplicate}
-          onDelete={handleDelete}
-          onCopy={handleCopy}
-          onPaste={handlePaste}
-        />
-      )}
-      <div className="drag-handle absolute -left-5 top-0 opacity-30 hover:opacity-100">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-        </svg>
+    <Draggable
+      bounds=".cv-canvas"
+      handle=".move-handle, .draggable-content"
+      defaultPosition={position}
+      position={position}
+      onStart={() => {
+        setIsDragging(true);
+      }}
+      onStop={handleDragStop}
+      disabled={!isSelected} // Only draggable when selected
+    >
+      <div 
+        ref={elementRef}
+        className={`canva-element group ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging scale-105 opacity-75' : ''}`}
+        style={elementStyle}
+        onClick={handleWrapperClick}
+        onMouseDown={handleMouseDown}
+      >
+        {isSelected && (
+          <div className="element-toolbar">
+            <FloatingToolbar 
+              onDuplicate={handleDuplicate} 
+              onDelete={handleDelete}
+              onCopy={handleCopy}
+              onPaste={handlePaste}
+            />
+            {typeof style.width === 'number' && (
+              <div 
+                className="resize-handle absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border-2 border-white rounded-full cursor-se-resize opacity-75 hover:opacity-100"
+                onMouseDown={handleResizeMouseDown}
+              ></div>
+            )}
+          </div>
+        )}
+        <div className="element-content p-1 break-words relative">
+          <div className={`move-handle absolute -left-8 top-0 w-7 h-7 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded-md shadow-sm cursor-move ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+            </svg>
+          </div>
+          <div className={`draggable-content ${isSelected ? 'cursor-move' : ''}`}>
+            {children}
+          </div>
+        </div>
       </div>
-      {children}
-    </div>
+    </Draggable>
   );
 };
 
@@ -917,7 +1029,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   };
   
   // Handle field position update
-  const handleFieldMove = (id: string, xDelta: number, yDelta: number) => {
+  const handleFieldMove = (id: string, xDelta: number, yDelta: number, styleUpdates?: Partial<TextStyle>) => {
     setElementStyles(prev => {
       const elementIndex = prev.findIndex(style => style.id === id);
       if (elementIndex >= 0) {
@@ -925,28 +1037,44 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         const currentStyle = updated[elementIndex].style;
         const currentPosition = currentStyle.position || { x: 0, y: 0, zIndex: 1 };
         
+        // Create an updated style with position changes
+        let updatedStyle = { 
+          ...currentStyle, 
+          position: {
+            ...currentPosition,
+            x: currentPosition.x + xDelta,
+            y: currentPosition.y + yDelta
+          }
+        };
+        
+        // Apply any additional style updates if provided
+        if (styleUpdates) {
+          updatedStyle = {
+            ...updatedStyle,
+            ...styleUpdates
+          };
+        }
+        
+        // Apply the updated style
         updated[elementIndex] = { 
           ...updated[elementIndex], 
-          style: { 
-            ...currentStyle, 
-            position: {
-              ...currentPosition,
-              x: currentPosition.x + xDelta,
-              y: currentPosition.y + yDelta
-            }
-          } 
+          style: updatedStyle 
         };
+        
         return updated;
       }
       return prev;
     });
+    
+    // Automatically select the moved element
+    setActiveElement(id);
   };
   
   // Add a state variable to track the next z-index to use
   const [nextZIndex, setNextZIndex] = useState<number>(100);
   
   // Handle element position update in absolute positioning
-  const handleElementMove = (id: string, xDelta: number, yDelta: number) => {
+  const handleElementMove = (id: string, xDelta: number, yDelta: number, styleUpdates?: Partial<TextStyle>) => {
     setElementStyles(prev => {
       const elementIndex = prev.findIndex(style => style.id === id);
       if (elementIndex >= 0) {
@@ -954,21 +1082,37 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         const currentStyle = updated[elementIndex].style;
         const currentPosition = currentStyle.position || { x: 0, y: 0, zIndex: 1 };
         
+        // Create an updated style with position changes
+        let updatedStyle = { 
+          ...currentStyle, 
+          position: {
+            ...currentPosition,
+            x: currentPosition.x + xDelta,
+            y: currentPosition.y + yDelta
+          }
+        };
+        
+        // Apply any additional style updates if provided
+        if (styleUpdates) {
+          updatedStyle = {
+            ...updatedStyle,
+            ...styleUpdates
+          };
+        }
+        
+        // Apply the updated style
         updated[elementIndex] = { 
           ...updated[elementIndex], 
-          style: { 
-            ...currentStyle, 
-            position: {
-              ...currentPosition,
-              x: currentPosition.x + xDelta,
-              y: currentPosition.y + yDelta
-            }
-          } 
+          style: updatedStyle 
         };
+        
         return updated;
       }
       return prev;
     });
+    
+    // Automatically select the moved element
+    setActiveElement(id);
   };
 
   // Bring element to front when selected
@@ -1076,7 +1220,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     } else {
       content = (
         <div 
-          className={`${className} ${isSelected ? 'border-2 border-blue-400' : ''} p-1`}
+          className={`${className} ${isSelected ? '' : ''} p-1`}
           onClick={handleClick}
         >
           {value}
@@ -1405,6 +1549,20 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex flex-col h-screen">
+        {/* Add global styles */}
+        <style>
+          {`
+          .dragging {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
+            z-index: 1000 !important;
+            transition: transform 0.1s, opacity 0.1s !important;
+          }
+          .move-handle {
+            z-index: 1001;
+          }
+          `}
+        </style>
+        
         {/* Notification */}
         {notification.show && (
           <div 
@@ -1568,7 +1726,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
           <div className="flex-1 bg-gray-100 overflow-auto flex justify-center items-start p-8">
             <div 
               ref={canvasRef}
-              className="bg-white shadow-lg mx-auto transition-transform relative"
+              className="bg-white shadow-lg mx-auto transition-transform relative cv-canvas"
               style={{ 
                 width: '210mm',
                 height: 'auto', 
