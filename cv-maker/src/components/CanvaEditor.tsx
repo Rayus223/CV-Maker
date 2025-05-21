@@ -532,9 +532,14 @@ const CanvaElement: React.FC<CanvaElementProps> = ({
           </div>
         )}
         <div className="element-content p-1 break-words relative">
-          <div className={`move-handle absolute -left-8 top-0 w-7 h-7 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded-md shadow-sm cursor-move ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+          <div className="move-handle absolute -left-8 top-0 w-7 h-7 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded-md shadow-sm cursor-move">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+            </svg>
+          </div>
+          <div className="edit-handle absolute -right-7 top-0 w-6 h-6 flex items-center justify-center bg-blue-100 hover:bg-blue-300 rounded-md shadow-sm cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
           </div>
           <div className={`draggable-content ${isSelected ? 'cursor-move' : ''}`}>
@@ -1220,10 +1225,17 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     } else {
       content = (
         <div 
-          className={`${className} ${isSelected ? '' : ''} p-1`}
+          className={`${className} ${isSelected ? '' : ''} p-1 hover:bg-blue-50/30 cursor-text relative`}
           onClick={handleClick}
         >
           {value}
+          {isSelected && (
+            <div className="absolute -right-5 top-0 opacity-50 hover:opacity-100">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </div>
+          )}
         </div>
       );
     }
@@ -1559,6 +1571,35 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
           }
           .move-handle {
             z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+          }
+          .edit-handle {
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+          }
+          .canva-element:hover .move-handle,
+          .canva-element:hover .edit-handle {
+            opacity: 1;
+          }
+          .draggable-content {
+            position: relative;
+          }
+          .edit-handle:hover::after {
+            content: "Double-click to edit";
+            position: absolute;
+            top: -25px;
+            right: -20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            opacity: 0.9;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 1002;
           }
           `}
         </style>
