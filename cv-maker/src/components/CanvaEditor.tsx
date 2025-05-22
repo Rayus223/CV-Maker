@@ -342,7 +342,7 @@ const CanvaElement: React.FC<CanvaElementProps> = ({
   const elementStyle = {
     position: 'absolute' as const,
     opacity: isDragging ? 0.8 : 1,
-    cursor: 'default', // Change to default since we have dedicated drag handles
+    cursor: 'default', // Default cursor
     width: typeof style.width === 'number' ? `${style.width}px` : 'auto',
     fontFamily: style.fontFamily,
     fontSize: style.fontSize,
@@ -351,13 +351,21 @@ const CanvaElement: React.FC<CanvaElementProps> = ({
     textDecoration: style.textDecoration,
     color: style.color,
     textAlign: style.textAlign,
-    zIndex: isDragging ? 1000 : (style.position?.zIndex || 1), // Ensure dragged element stays on top
+    zIndex: isDragging ? 1000 : (style.position?.zIndex || 1),
     transition: isDragging ? 'none' : 'opacity 0.2s',
     boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.1)' : (isSelected ? '0 0 0 2px rgba(59, 130, 246, 0.5)' : 'none'),
   };
   
   // Handle the end of dragging to update state with new position
   const handleDragStop = (e: DraggableEvent, data: DraggableData) => {
+    // If this was a click, not a drag, and it was a double-click
+    if (Math.abs(data.x - (style.position?.x || 0)) < 3 && 
+        Math.abs(data.y - (style.position?.y || 0)) < 3 && 
+        (e as any).detail === 2) {
+      // Prevent handling as a drag
+      return;
+    }
+    
     setIsDragging(false);
     
     // Get the canvas dimensions
@@ -382,15 +390,6 @@ const CanvaElement: React.FC<CanvaElementProps> = ({
     
     // Call the parent handler with the deltas
     onDragEnd(id, xDelta, yDelta);
-    
-    // Show a brief notice
-    const element = document.getElementById('drag-notice');
-    if (element) {
-      element.style.opacity = '1';
-      setTimeout(() => {
-        element.style.opacity = '0';
-      }, 1000);
-    }
   };
   
   // Handle mouse down for resizing
@@ -499,10 +498,13 @@ const CanvaElement: React.FC<CanvaElementProps> = ({
   return (
     <Draggable
       bounds=".cv-canvas"
-      handle=".move-handle, .draggable-content"
       defaultPosition={position}
       position={position}
-      onStart={() => {
+      onStart={(e, data) => {
+        // Don't start drag on double-click (which should trigger editing)
+        if ((e as MouseEvent).detail === 2) {
+          return false;
+        }
         setIsDragging(true);
       }}
       onStop={handleDragStop}
@@ -510,41 +512,33 @@ const CanvaElement: React.FC<CanvaElementProps> = ({
     >
       <div 
         ref={elementRef}
-        className={`canva-element group ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging scale-105 opacity-75' : ''}`}
+        className={`canva-element ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
         style={elementStyle}
         onClick={handleWrapperClick}
         onMouseDown={handleMouseDown}
       >
-        {isSelected && (
-          <div className="element-toolbar">
-            <FloatingToolbar 
-              onDuplicate={handleDuplicate} 
-              onDelete={handleDelete}
-              onCopy={handleCopy}
-              onPaste={handlePaste}
-            />
-            {typeof style.width === 'number' && (
-              <div 
-                className="resize-handle absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border-2 border-white rounded-full cursor-se-resize opacity-75 hover:opacity-100"
-                onMouseDown={handleResizeMouseDown}
-              ></div>
+                    {isSelected && (
+              <div className="element-toolbar">
+                <FloatingToolbar 
+                  onDuplicate={handleDuplicate} 
+                  onDelete={handleDelete}
+                  onCopy={handleCopy}
+                  onPaste={handlePaste}
+                />
+                {typeof style.width === 'number' && (
+                  <div 
+                    className="resize-handle absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 border-2 border-white rounded-full cursor-se-resize opacity-75 hover:opacity-100 flex items-center justify-center"
+                    onMouseDown={handleResizeMouseDown}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-2 w-2 text-white" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                  </div>
+                )}
+              </div>
             )}
-          </div>
-        )}
-        <div className="element-content p-1 break-words relative">
-          <div className="move-handle absolute -left-8 top-0 w-7 h-7 flex items-center justify-center bg-blue-100 hover:bg-blue-200 rounded-md shadow-sm cursor-move">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-            </svg>
-          </div>
-          <div className="edit-handle absolute -right-7 top-0 w-6 h-6 flex items-center justify-center bg-blue-100 hover:bg-blue-300 rounded-md shadow-sm cursor-pointer">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
-          </div>
-          <div className={`draggable-content ${isSelected ? 'cursor-move' : ''}`}>
-            {children}
-          </div>
+        <div className="element-content p-1 break-words">
+          {children}
         </div>
       </div>
     </Draggable>
@@ -746,8 +740,23 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
   const location = useLocation();
   
-  // CV data state
-  const [cvData, setCvData] = useState<CVData>(initialData || sampleData);
+  // CV data state - start with empty data for new CV
+  const [cvData, setCvData] = useState<CVData>(initialData || {
+    firstName: '',
+    lastName: '',
+    pronouns: '',
+    title: '',
+    dob: '',
+    phone: '',
+    email: '',
+    address: '',
+    skills: [],
+    links: [],
+    experience: [],
+    education: [],
+    projects: [],
+    recentProjects: []
+  } as CVData);
   
   // Editing state
   const [currentlyEditing, setCurrentlyEditing] = useState<{
@@ -788,11 +797,25 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     return elementStyle ? elementStyle.style : defaultStyle;
   };
   
-  // Replace the startEditing function
+  // Start editing with enhanced handling
   const startEditing = (field: string, section?: string, index?: number, subfield?: string) => {
-    setCurrentlyEditing({ field, section, index, subfield });
+    // First select the element - this ensures proper visual highlighting
     setSelectedElement({ field, section, index, subfield });
     setActiveElement('text');
+    
+    // Then apply editing mode - this will show the input field
+    setCurrentlyEditing({ field, section, index, subfield });
+    
+    // Focus will happen automatically due to autoFocus on the input
+    
+    // Prevent any other interactions during edit mode
+    document.addEventListener('mousedown', (e) => {
+      const target = e.target as HTMLElement;
+      // Only allow interacting with the current editing field
+      if (!target.closest('input') && !target.closest('textarea')) {
+        stopEditing();
+      }
+    }, { once: true });
   };
   
   // Replace the stopEditing function
@@ -1008,6 +1031,10 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   const handleColorClick = (color: string) => {
     updateActiveElementStyle({ color });
   };
+  
+
+  
+
 
   // Add a special handler for the name field
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1177,65 +1204,80 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     const elementId = getElementId(field, section, index, subfield);
     const style = getStyleForElement(field, section, index, subfield);
     
-    const handleClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      
-      // Select the element
-      selectElement(field, section, index, subfield);
-      
-      // Bring to front
-      bringToFront(elementId);
-      
-      // Double click to edit
-      if (e.detail === 2) {
-        startEditing(field, section, index, subfield);
-      }
-    };
+      const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Select the element
+    selectElement(field, section, index, subfield);
+    
+    // Bring to front
+    bringToFront(elementId);
+    
+    // Double click to edit - prevent any other handlers from capturing this
+    if (e.detail === 2) {
+      e.preventDefault();
+      startEditing(field, section, index, subfield);
+      return false;
+    }
+  };
     
     // Conditional content based on editing state
     let content;
     if (isEditing) {
       if (isMultiline) {
         content = (
-          <textarea
-            value={value}
-            onChange={handleFieldChange}
-            onBlur={stopEditing}
-            onKeyDown={handleFieldKeyDown}
-            className={`border border-blue-400 p-1 focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
-            autoFocus
-            rows={3}
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div className="absolute z-50">
+            <textarea
+              value={value}
+              onChange={handleFieldChange}
+              onBlur={stopEditing}
+              onKeyDown={handleFieldKeyDown}
+              className={`border border-blue-400 p-1 focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
+              style={{ minWidth: '200px', width: '100%' }}
+              autoFocus
+              rows={3}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+            />
+          </div>
         );
       } else {
         content = (
-          <input
-            type="text"
-            value={value}
-            onChange={handleFieldChange}
-            onBlur={stopEditing}
-            onKeyDown={handleFieldKeyDown}
-            className={`border border-blue-400 p-1 focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
-            autoFocus
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div className="absolute z-50">
+            <input
+              type="text"
+              value={value}
+              onChange={handleFieldChange}
+              onBlur={stopEditing}
+              onKeyDown={handleFieldKeyDown}
+              className={`border border-blue-400 p-1 focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
+              style={{ minWidth: '200px', width: '100%' }}
+              autoFocus
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+            />
+          </div>
         );
       }
     } else {
       content = (
         <div 
-          className={`${className} ${isSelected ? '' : ''} p-1 hover:bg-blue-50/30 cursor-text relative`}
+          className={`${className} ${isSelected ? '' : ''} p-1 cursor-text`}
           onClick={handleClick}
         >
           {value}
-          {isSelected && (
-            <div className="absolute -right-5 top-0 opacity-50 hover:opacity-100">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </div>
-          )}
         </div>
       );
     }
@@ -1568,39 +1610,24 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
             z-index: 1000 !important;
             transition: transform 0.1s, opacity 0.1s !important;
+            transform: scale(1.02);
+            opacity: 0.9;
           }
-          .move-handle {
-            z-index: 1001;
-            opacity: 0;
-            transition: opacity 0.2s ease;
+          .canva-element {
+            user-select: none;
+            transition: box-shadow 0.2s;
+            outline: none;
           }
-          .edit-handle {
-            z-index: 1001;
-            opacity: 0;
-            transition: opacity 0.2s ease;
+          .canva-element.selected {
+            cursor: move; /* Show move cursor when selected */
           }
-          .canva-element:hover .move-handle,
-          .canva-element:hover .edit-handle {
-            opacity: 1;
+          .canva-element:hover {
+            box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
           }
-          .draggable-content {
+          .element-content {
             position: relative;
           }
-          .edit-handle:hover::after {
-            content: "Double-click to edit";
-            position: absolute;
-            top: -25px;
-            right: -20px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            opacity: 0.9;
-            pointer-events: none;
-            white-space: nowrap;
-            z-index: 1002;
-          }
+          /* Removed tooltip */
           `}
         </style>
         
@@ -2153,6 +2180,66 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
                       className="text-xs border border-gray-300 rounded px-2 py-1 w-full"
                       placeholder="#RRGGBB"
                     />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Width</label>
+                    <div className="flex items-center">
+                      <div className="w-full">
+                        <input
+                          type="range"
+                          min="100"
+                          max="500"
+                          step="10"
+                          value={activeStyle.width || 200}
+                          onChange={(e) => {
+                            const newWidth = parseInt(e.target.value, 10);
+                            if (!isNaN(newWidth) && newWidth >= 50) {
+                              updateActiveElementStyle({ width: newWidth });
+                            }
+                          }}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="ml-2 w-16">
+                        <input
+                          type="number"
+                          min="50"
+                          max="800"
+                          value={activeStyle.width || 200}
+                          onChange={(e) => {
+                            const newWidth = parseInt(e.target.value, 10);
+                            if (!isNaN(newWidth) && newWidth >= 50) {
+                              updateActiveElementStyle({ width: newWidth });
+                            }
+                          }}
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-between mt-2">
+                      <button
+                        onClick={() => {
+                          if (!activeStyle.width || activeStyle.width < 50) {
+                            updateActiveElementStyle({ width: 200 });
+                          }
+                        }}
+                        className={`text-xs px-2 py-1 rounded ${activeStyle.width ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'}`}
+                      >
+                        Fixed width
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (activeStyle.width) {
+                            const { width, ...styleWithoutWidth } = activeStyle;
+                            updateActiveElementStyle(styleWithoutWidth as TextStyle);
+                          }
+                        }}
+                        className={`text-xs px-2 py-1 rounded ${!activeStyle.width ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'}`}
+                      >
+                        Auto width
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
