@@ -46,6 +46,7 @@ export interface CVData {
     };
   }[];
   recentProjects: {
+    id?: string;
     name: string;
     description: string;
     image?: {
@@ -53,6 +54,8 @@ export interface CVData {
       publicId: string;
     };
     link?: string;
+    updatedAt?: string;
+    createdAt?: string;
   }[];
   otherField?: string;
 }

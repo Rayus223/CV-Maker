@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const filePath = path.join(__dirname, 'hi.js');
+const filePath = path.join(__dirname, 'hi.ts');
 
 // Function to generate a random letter (A-Z or a-z)
 function generateRandomLetter() {

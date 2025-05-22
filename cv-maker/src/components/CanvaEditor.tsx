@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CVData, sampleData } from '../types/types';
 import { DndProvider, useDrag, useDrop, useDragLayer } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import type { XYCoord, DropTargetMonitor, DragSourceMonitor } from 'react-dnd';
 import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
+import { saveCV, updateCV, getCVById } from '../services/cvService';
+import { useAuth } from '../context/AuthContext';
 
 interface CanvaEditorProps {
   initialData?: CVData;
@@ -765,6 +767,14 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   const [documentTitle, setDocumentTitle] = useState<string>('Untitled design');
   const [isEditingTitle, setIsEditingTitle] = useState<boolean>(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  
+  // Add state for project ID and loading status
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [autoSaveInterval, setAutoSaveInterval] = useState<number>(30000); // 30 seconds
   
   // CV data state - start with empty data for new CV
   const [cvData, setCvData] = useState<CVData>(initialData || {
@@ -1092,6 +1102,12 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   // Handle title input blur to save
   const handleTitleBlur = () => {
     setIsEditingTitle(false);
+    // Save project when title changes
+    if (isAuthenticated && projectId) {
+      updateCV(projectId, cvData, documentTitle)
+        .then(() => setLastSaved(new Date()))
+        .catch(err => console.error('Error updating title:', err));
+    }
   };
   
   // Handle title input keydown (save on Enter)
@@ -1709,6 +1725,138 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     }
   }, []);
 
+  // Check query params for project ID or template ID
+  useEffect(() => {
+    const loadProject = async () => {
+      try {
+        setIsLoading(true);
+        const params = new URLSearchParams(location.search);
+        const projectParam = params.get('project');
+        
+        // If project ID is provided, load the project
+        if (projectParam) {
+          try {
+            const project = await getCVById(projectParam);
+            setCvData(project.data);
+            setDocumentTitle(project.name);
+            setProjectId(project.id);
+            showNotification('Project loaded successfully', 'success');
+          } catch (error) {
+            console.error('Failed to load project:', error);
+            showNotification('Failed to load project', 'error');
+          }
+        }
+      } catch (error) {
+        console.error('Error loading project:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (isAuthenticated) {
+      loadProject();
+    }
+  }, [location.search, isAuthenticated]);
+  
+  // Set up auto-save functionality
+  useEffect(() => {
+    let autoSaveTimer: NodeJS.Timeout | null = null;
+    
+    const autoSave = async () => {
+      if (!isAuthenticated || !cvData) return;
+      
+      try {
+        // Don't auto-save if we're still loading the initial project
+        if (isLoading) return;
+        
+        if (projectId) {
+          // Update existing project
+          await updateCV(projectId, cvData, documentTitle);
+        } else {
+          // Save new project
+          const newProject = await saveCV(cvData, documentTitle || 'Untitled CV');
+          setProjectId(newProject.id);
+        }
+        
+        setLastSaved(new Date());
+        // Silent notification or small indicator that save happened
+        console.log('Auto-saved at', new Date().toLocaleTimeString());
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      }
+    };
+    
+    // Set up auto-save interval
+    if (isAuthenticated && !isLoading) {
+      autoSaveTimer = setInterval(autoSave, autoSaveInterval);
+    }
+    
+    // Clean up on unmount
+    return () => {
+      if (autoSaveTimer) {
+        clearInterval(autoSaveTimer);
+      }
+    };
+  }, [isAuthenticated, cvData, projectId, documentTitle, isLoading, autoSaveInterval]);
+  
+  // Save before navigating away
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const saveBeforeLeaving = async () => {
+        if (!isAuthenticated || !cvData) return;
+        
+        try {
+          if (projectId) {
+            await updateCV(projectId, cvData, documentTitle);
+          } else {
+            await saveCV(cvData, documentTitle || 'Untitled CV');
+          }
+        } catch (error) {
+          console.error('Failed to save before leaving:', error);
+        }
+      };
+      
+      saveBeforeLeaving();
+      
+      // Show standard browser warning
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [cvData, projectId, documentTitle, isAuthenticated]);
+  
+  // Manual save function
+  const handleManualSave = async () => {
+    if (!isAuthenticated) {
+      showNotification('Please login to save your CV', 'error');
+      return;
+    }
+    
+    try {
+      showNotification('Saving your CV...', 'info');
+      
+      if (projectId) {
+        // Update existing project
+        await updateCV(projectId, cvData, documentTitle);
+      } else {
+        // Save new project
+        const newProject = await saveCV(cvData, documentTitle || 'Untitled CV');
+        setProjectId(newProject.id);
+      }
+      
+      setLastSaved(new Date());
+      showNotification('CV saved successfully', 'success');
+    } catch (error) {
+      console.error('Save failed:', error);
+      showNotification('Failed to save CV', 'error');
+    }
+  };
+  
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex flex-col h-screen">
@@ -1819,13 +1967,22 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
                 </button>
               </div>
               
-              <button className="bg-brand-primary text-white px-4 py-2 rounded-md hover:bg-brand-dark transition-colors">
-                Share
-              </button>
-              
-              <button className="bg-brand-primary text-white px-4 py-2 rounded-md hover:bg-brand-dark transition-colors">
-                Download
-              </button>
+              <div className="flex items-center space-x-2">
+                {lastSaved && (
+                  <span className="text-xs text-gray-500">
+                    Last saved: {lastSaved.toLocaleTimeString()}
+                  </span>
+                )}
+                <button
+                  onClick={handleManualSave}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                  Save
+                </button>
+              </div>
             </div>
           </div>
         </header>

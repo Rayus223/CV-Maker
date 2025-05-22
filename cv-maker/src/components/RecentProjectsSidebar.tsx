@@ -2,11 +2,32 @@ import React from 'react';
 import { CVData } from '../types/types';
 
 interface RecentProjectsSidebarProps {
-  recentProjects: CVData['recentProjects'];
+  recentProjects: (CVData['recentProjects'][0] & { id?: string, updatedAt?: string })[];
   onProjectClick: (index: number) => void;
+  createCV?: () => void;
+  isLoading?: boolean;
 }
 
-const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({ recentProjects, onProjectClick }) => {
+const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({ 
+  recentProjects, 
+  onProjectClick, 
+  createCV,
+  isLoading = false
+}) => {
+  if (isLoading) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-sm">
+        <h3 className="text-xl font-medium text-brand-primary mb-4">Recent Projects</h3>
+        <div className="py-8 text-center">
+          <div className="flex justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
+          </div>
+          <p className="mt-4 text-gray-500">Loading your projects...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!recentProjects || recentProjects.length === 0) {
     return (
       <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -21,7 +42,7 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({ recentPro
           <p className="text-gray-500 text-sm mb-4">Create your first CV to get started on your professional journey</p>
           <button 
             className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-dark transition"
-            onClick={() => window.location.href = '/cv-editor'}
+            onClick={createCV || (() => window.location.href = '/cv-editor')}
           >
             Create Your First CV
           </button>
@@ -39,7 +60,7 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({ recentPro
       <div className="divide-y divide-gray-200">
         {recentProjects.map((project, index) => (
           <div 
-            key={index} 
+            key={project.id || index} 
             className="p-4 hover:bg-gray-50 transition cursor-pointer"
             onClick={() => onProjectClick(index)}
           >
@@ -54,6 +75,11 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({ recentPro
             )}
             <h4 className="font-medium text-gray-900">{project.name}</h4>
             <p className="text-sm text-gray-600 mt-1 line-clamp-2">{project.description}</p>
+            {project.updatedAt && (
+              <p className="text-xs text-gray-500 mt-1">
+                Updated: {new Date(project.updatedAt).toLocaleDateString()}
+              </p>
+            )}
             {project.link && (
               <a 
                 href={project.link} 
@@ -72,8 +98,9 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({ recentPro
       <div className="p-4 bg-gray-50 text-center">
         <button 
           className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-dark transition"
+          onClick={createCV}
         >
-          Browse All Projects
+          Create New CV
         </button>
       </div>
     </aside>

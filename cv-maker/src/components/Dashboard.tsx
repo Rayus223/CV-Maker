@@ -2,18 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import RecentProjectsSidebar from './RecentProjectsSidebar';
-import OtherFieldForm from './OtherFieldForm';
 import ImageUploader from './ImageUploader';
-import { CVData, sampleData } from '../types/types';
+import { CVData } from '../types/types';
 import TemplateCard from './TemplateCard';
 import { getFeaturedTemplates } from '../services/templateService';
+import { getUserCVs } from '../services/cvService';
 import WelcomePopup from './WelcomePopup';
 import DashboardTour from './DashboardTour';
 
 const Dashboard: React.FC = () => {
   const { user, logout, isAuthenticated, updateProfileImage, setUser } = useAuth();
   const navigate = useNavigate();
-  const [otherField, setOtherField] = useState<string>(sampleData.otherField || '');
   const [showWelcome, setShowWelcome] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [showImageUploader, setShowImageUploader] = useState(true);
@@ -22,10 +21,9 @@ const Dashboard: React.FC = () => {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [showCreateOptions, setShowCreateOptions] = useState(false);
+  const [userProjects, setUserProjects] = useState<CVData['recentProjects']>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   
-  // Empty projects array for new users
-  const recentProjects: CVData['recentProjects'] = [];
-
   // Get featured templates
   const featuredTemplates = getFeaturedTemplates();
 
@@ -35,6 +33,40 @@ const Dashboard: React.FC = () => {
       navigate('/login');
     }
   }, [isAuthenticated, navigate]);
+
+  // Fetch user's projects when authenticated
+  useEffect(() => {
+    const fetchUserProjects = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        setIsLoadingProjects(true);
+        const projects = await getUserCVs();
+        
+        // Transform the projects to the format expected by RecentProjectsSidebar
+        const transformedProjects = projects.map(project => ({
+          id: project.id,
+          name: project.name,
+          description: project.description || '',
+          image: project.thumbnail,
+          updatedAt: project.updatedAt
+        }));
+        
+        // Sort by updated date (newest first)
+        transformedProjects.sort((a, b) => {
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        });
+        
+        setUserProjects(transformedProjects);
+      } catch (error) {
+        console.error('Failed to fetch user projects:', error);
+      } finally {
+        setIsLoadingProjects(false);
+      }
+    };
+    
+    fetchUserProjects();
+  }, [isAuthenticated]);
 
   // Check if user has profile image
   useEffect(() => {
@@ -66,8 +98,10 @@ const Dashboard: React.FC = () => {
 
   const handleProjectClick = (index: number) => {
     // Navigate to project details page or open project in editor
-    console.log(`Opening project ${index}`);
-    navigate(`/canva-editor?project=${index}`);
+    const projectId = userProjects[index]?.id;
+    if (projectId) {
+      navigate(`/canva-editor?project=${projectId}`);
+    }
   };
 
   const handleImageUploaded = (imageData: { url: string; publicId: string }) => {
@@ -432,8 +466,10 @@ const Dashboard: React.FC = () => {
                 <div className="w-full md:w-1/3 lg:w-1/4">
                   <div className="recent-projects">
                     <RecentProjectsSidebar 
-                      recentProjects={recentProjects} 
-                      onProjectClick={handleProjectClick} 
+                      recentProjects={userProjects} 
+                      onProjectClick={handleProjectClick}
+                      createCV={handleCreateCVClick}
+                      isLoading={isLoadingProjects}
                     />
                   </div>
                   
@@ -498,7 +534,7 @@ const Dashboard: React.FC = () => {
                       </p>
                       <div className="mt-6 flex flex-wrap justify-center gap-4">
                         <button
-                          onClick={() => navigate('/canva-editor?blank=true')}
+                          onClick={handleCreateCVClick}
                           className="create-cv-button px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-brand-primary hover:bg-brand-dark transition-colors duration-200 shadow-sm"
                         >
                           Create New CV
@@ -529,14 +565,6 @@ const Dashboard: React.FC = () => {
                         />
                       ))}
                     </div>
-                  </div>
-                  
-                  {/* Other Field Form */}
-                  <div className="mb-6">
-                    <OtherFieldForm 
-                      value={otherField} 
-                      onChange={setOtherField} 
-                    />
                   </div>
                 </div>
               </div>
