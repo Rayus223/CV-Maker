@@ -1,9 +1,9 @@
 
 
-# Dear Sir Home Tuition CV Maker
+# CV Maker
 
 ## Overview
-Dear Sir Home Tuition CV Maker is a sophisticated, user-friendly web application designed to help professionals, students, and job seekers create stunning, personalized CVs with ease. Built using modern technologies like React and Tailwind CSS, this platform offers a seamless experience for crafting professional resumes that stand out.
+ CV Maker is a sophisticated, user-friendly web application designed to help professionals, students, and job seekers create stunning, personalized CVs with ease. Built using modern technologies like React and Tailwind CSS, this platform offers a seamless experience for crafting professional resumes that stand out.
 
 ## Current Features
 
