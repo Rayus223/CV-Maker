@@ -747,17 +747,17 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   });
 
   // Add showNotification function
-  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'success', duration: number = 3000) => {
     setNotification({
       show: true,
       message,
       type
     });
 
-    // Hide after 3 seconds
+    // Hide after specified duration
     setTimeout(() => {
       setNotification(prev => ({ ...prev, show: false }));
-    }, 3000);
+    }, duration);
   };
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -774,7 +774,10 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [autoSaveInterval, setAutoSaveInterval] = useState<number>(30000); // 30 seconds
+  const [autoSaveInterval, setAutoSaveInterval] = useState<number>(10000); // 10 seconds
+  
+  // Add saving state to track when a save is in progress
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   
   // CV data state - start with empty data for new CV
   const [cvData, setCvData] = useState<CVData>(initialData || {
@@ -1766,8 +1769,10 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
       if (!isAuthenticated || !cvData) return;
       
       try {
-        // Don't auto-save if we're still loading the initial project
-        if (isLoading) return;
+        // Don't auto-save if we're still loading the initial project or already saving
+        if (isLoading || isSaving) return;
+        
+        setIsSaving(true);
         
         if (projectId) {
           // Update existing project
@@ -1779,10 +1784,13 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         }
         
         setLastSaved(new Date());
-        // Silent notification or small indicator that save happened
-        console.log('Auto-saved at', new Date().toLocaleTimeString());
+        // Brief success notification that auto-fades
+        showNotification('Auto-saved', 'success', 1500);
       } catch (error) {
         console.error('Auto-save failed:', error);
+        showNotification('Auto-save failed', 'error');
+      } finally {
+        setIsSaving(false);
       }
     };
     
@@ -1797,7 +1805,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         clearInterval(autoSaveTimer);
       }
     };
-  }, [isAuthenticated, cvData, projectId, documentTitle, isLoading, autoSaveInterval]);
+  }, [isAuthenticated, cvData, projectId, documentTitle, isLoading, autoSaveInterval, isSaving]);
   
   // Save before navigating away
   useEffect(() => {
@@ -1837,7 +1845,13 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
       return;
     }
     
+    if (isSaving) {
+      showNotification('Save already in progress', 'info');
+      return;
+    }
+    
     try {
+      setIsSaving(true);
       showNotification('Saving your CV...', 'info');
       
       if (projectId) {
@@ -1854,6 +1868,8 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     } catch (error) {
       console.error('Save failed:', error);
       showNotification('Failed to save CV', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
   
@@ -1968,19 +1984,37 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
               </div>
               
               <div className="flex items-center space-x-2">
-                {lastSaved && (
+                {isSaving && (
+                  <div className="flex items-center text-xs text-gray-600">
+                    <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-blue-500 mr-1"></div>
+                    Saving...
+                  </div>
+                )}
+                {!isSaving && lastSaved && (
                   <span className="text-xs text-gray-500">
                     Last saved: {lastSaved.toLocaleTimeString()}
                   </span>
                 )}
                 <button
                   onClick={handleManualSave}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  disabled={isSaving}
+                  className={`flex items-center gap-1 px-3 py-1.5 ${isSaving 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-md transition-colors`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                  </svg>
-                  Save
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                      </svg>
+                      Save
+                    </>
+                  )}
                 </button>
               </div>
             </div>

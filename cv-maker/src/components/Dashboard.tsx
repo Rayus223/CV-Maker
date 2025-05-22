@@ -23,6 +23,7 @@ const Dashboard: React.FC = () => {
   const [showCreateOptions, setShowCreateOptions] = useState(false);
   const [userProjects, setUserProjects] = useState<CVData['recentProjects']>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Get featured templates
   const featuredTemplates = getFeaturedTemplates();
@@ -199,6 +200,44 @@ const Dashboard: React.FC = () => {
       navigate('/templates');
     }
   };
+
+  // Add this function to refresh projects
+  const refreshProjects = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      setIsRefreshing(true);
+      setIsLoadingProjects(true);
+      
+      const projects = await getUserCVs();
+      
+      // Transform the projects to the format expected by RecentProjectsSidebar
+      const transformedProjects = projects.map(project => ({
+        id: project.id,
+        name: project.name,
+        description: project.description || '',
+        image: project.thumbnail,
+        updatedAt: project.updatedAt
+      }));
+      
+      // Sort by updated date (newest first)
+      transformedProjects.sort((a, b) => {
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+      
+      setUserProjects(transformedProjects);
+    } catch (error) {
+      console.error('Failed to fetch user projects:', error);
+    } finally {
+      setIsLoadingProjects(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  // Modify the existing useEffect to use the new refreshProjects function
+  useEffect(() => {
+    refreshProjects();
+  }, [isAuthenticated]);
 
   // If not authenticated, show loading spinner instead of dashboard
   if (!isAuthenticated) {
@@ -470,6 +509,8 @@ const Dashboard: React.FC = () => {
                       onProjectClick={handleProjectClick}
                       createCV={handleCreateCVClick}
                       isLoading={isLoadingProjects}
+                      onRefresh={refreshProjects}
+                      isRefreshing={isRefreshing}
                     />
                   </div>
                   
