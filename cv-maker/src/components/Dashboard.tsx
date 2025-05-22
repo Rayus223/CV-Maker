@@ -42,6 +42,7 @@ const Dashboard: React.FC = () => {
       
       try {
         setIsLoadingProjects(true);
+        
         const projects = await getUserCVs();
         
         // Transform the projects to the format expected by RecentProjectsSidebar

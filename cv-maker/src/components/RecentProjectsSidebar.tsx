@@ -18,6 +18,36 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({
   onRefresh,
   isRefreshing = false
 }) => {
+  const renderHeader = () => (
+    <div className="flex justify-between items-center mb-4">
+      <h3 className="text-xl font-medium text-brand-primary">Recent Projects</h3>
+      <div className="flex items-center space-x-2">
+        <button
+          onClick={createCV}
+          className="flex items-center space-x-1 px-2 py-1 text-xs bg-brand-primary text-white rounded hover:bg-brand-dark"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          <span>New</span>
+        </button>
+        
+        {onRefresh && (
+          <button 
+            onClick={onRefresh} 
+            disabled={isRefreshing || isLoading}
+            className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50"
+            title="Refresh projects"
+          >
+            <svg className={`w-5 h-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   const renderCreateCVButton = () => (
     <div className="p-4 bg-gray-50 text-center border-t border-gray-200">
       <button 
@@ -32,21 +62,7 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({
   if (isLoading) {
     return (
       <div className="bg-white p-6 rounded-lg shadow-sm">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-medium text-brand-primary">Recent Projects</h3>
-          {onRefresh && (
-            <button 
-              onClick={onRefresh} 
-              disabled={isRefreshing || isLoading}
-              className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50"
-              title="Refresh projects"
-            >
-              <svg className={`w-5 h-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-          )}
-        </div>
+        {renderHeader()}
         <div className="py-8 text-center">
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
@@ -61,21 +77,7 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({
   if (!recentProjects || recentProjects.length === 0) {
     return (
       <div className="bg-white p-6 rounded-lg shadow-sm">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-medium text-brand-primary">Recent Projects</h3>
-          {onRefresh && (
-            <button 
-              onClick={onRefresh} 
-              disabled={isRefreshing}
-              className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50"
-              title="Refresh projects"
-            >
-              <svg className={`w-5 h-5 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-          )}
-        </div>
+        {renderHeader()}
         <div className="py-8 text-center">
           <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
             <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -94,18 +96,30 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({
     <aside className="w-full bg-white rounded-lg shadow-sm overflow-hidden">
       <div className="bg-brand-primary text-white p-4 flex justify-between items-center">
         <h3 className="text-lg font-semibold">Recent Projects</h3>
-        {onRefresh && (
-          <button 
-            onClick={onRefresh} 
-            disabled={isRefreshing}
-            className="p-1.5 rounded-full hover:bg-brand-dark text-white disabled:opacity-50"
-            title="Refresh projects"
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={createCV}
+            className="flex items-center space-x-1 px-2 py-1 text-xs bg-white text-brand-primary rounded hover:bg-gray-100"
           >
-            <svg className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
+            <span>New</span>
           </button>
-        )}
+          
+          {onRefresh && (
+            <button 
+              onClick={onRefresh} 
+              disabled={isRefreshing}
+              className="p-1.5 rounded-full hover:bg-brand-dark text-white disabled:opacity-50"
+              title="Refresh projects"
+            >
+              <svg className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="divide-y divide-gray-200">

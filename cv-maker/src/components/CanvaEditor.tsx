@@ -1788,7 +1788,16 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         showNotification('Auto-saved', 'success', 1500);
       } catch (error) {
         console.error('Auto-save failed:', error);
-        showNotification('Auto-save failed', 'error');
+        if (String(error).includes('Authentication required')) {
+          showNotification('Please login to save your CV', 'error', 3000);
+          // Stop trying to auto-save if not authenticated
+          if (autoSaveTimer) {
+            clearInterval(autoSaveTimer);
+            autoSaveTimer = null;
+          }
+        } else {
+          showNotification('Auto-save failed', 'error');
+        }
       } finally {
         setIsSaving(false);
       }
@@ -1807,41 +1816,12 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     };
   }, [isAuthenticated, cvData, projectId, documentTitle, isLoading, autoSaveInterval, isSaving]);
   
-  // Save before navigating away
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const saveBeforeLeaving = async () => {
-        if (!isAuthenticated || !cvData) return;
-        
-        try {
-          if (projectId) {
-            await updateCV(projectId, cvData, documentTitle);
-          } else {
-            await saveCV(cvData, documentTitle || 'Untitled CV');
-          }
-        } catch (error) {
-          console.error('Failed to save before leaving:', error);
-        }
-      };
-      
-      saveBeforeLeaving();
-      
-      // Show standard browser warning
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [cvData, projectId, documentTitle, isAuthenticated]);
-  
   // Manual save function
   const handleManualSave = async () => {
     if (!isAuthenticated) {
       showNotification('Please login to save your CV', 'error');
+      // Redirect to login page
+      navigate('/login?redirect=canva-editor');
       return;
     }
     

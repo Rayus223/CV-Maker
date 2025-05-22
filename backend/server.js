@@ -85,6 +85,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/verify', require('./routes/emailVerification'));
 app.use('/api/uploads', require('./routes/uploads'));
+app.use('/api/projects', require('./routes/projects'));
 
 // Simple test route
 app.get('/', (req, res) => {
