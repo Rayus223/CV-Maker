@@ -41,25 +41,30 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     setUploadError(null);
 
     try {
-      // In a real application, you would get the token from your auth context/service
+      // Get the token from localStorage
       const token = localStorage.getItem('token');
       
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch('/api/uploads', {
+      const response = await fetch('http://localhost:5000/api/uploads', {
         method: 'POST',
         headers: {
+          // Don't set Content-Type with FormData, browser will set it with boundary
+          'Authorization': token || '',
           'x-auth-token': token || '',
         },
+        credentials: 'include',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to upload image');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to upload image');
       }
 
       const data = await response.json();
+      console.log('Upload successful:', data);
       onImageUploaded({
         url: data.imageUrl,
         publicId: data.publicId,
@@ -80,14 +85,17 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     if (!currentImage || !onImageDeleted) return;
 
     try {
-      // In a real application, you would get the token from your auth context/service
+      // Get the token from localStorage
       const token = localStorage.getItem('token');
 
-      const response = await fetch(`/api/uploads/${currentImage.publicId}`, {
+      const response = await fetch(`http://localhost:5000/api/uploads/${currentImage.publicId}`, {
         method: 'DELETE',
         headers: {
+          'Authorization': token || '',
           'x-auth-token': token || '',
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
       });
 
       if (!response.ok) {

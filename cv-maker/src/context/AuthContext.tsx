@@ -6,6 +6,10 @@ interface User {
   name: string;
   email: string;
   isVerified?: boolean;
+  profileImage?: {
+    url: string;
+    publicId: string;
+  };
 }
 
 // Define the AuthContext type
@@ -18,6 +22,7 @@ interface AuthContextType {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   error: string | null;
+  updateProfileImage: (imageData: { url: string; publicId: string }) => void;
 }
 
 // Create the context with default values
@@ -30,6 +35,7 @@ const AuthContext = createContext<AuthContextType>({
   register: async () => {},
   logout: () => {},
   error: null,
+  updateProfileImage: () => {},
 });
 
 // Auth Provider props
@@ -70,6 +76,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         if (response.ok) {
           const userData = await response.json();
+          
+          // Check for saved profile image in localStorage
+          const savedProfileImage = localStorage.getItem('profileImage');
+          if (savedProfileImage) {
+            userData.profileImage = JSON.parse(savedProfileImage);
+          }
+          
           setUser(userData);
           setIsAuthenticated(true);
         } else {
@@ -92,6 +105,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     loadUser();
   }, []);
+
+  // Update profile image
+  const updateProfileImage = (imageData: { url: string; publicId: string }) => {
+    // Save profile image to localStorage for persistence
+    localStorage.setItem('profileImage', JSON.stringify(imageData));
+    
+    // Update user state with new profile image
+    setUser(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        profileImage: imageData
+      };
+    });
+    
+    // Here you would also make an API call to update the user's profile in the database
+    // But for now, we'll just keep it in localStorage
+  };
 
   // Login user
   const login = async (email: string, password: string) => {
@@ -128,6 +159,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (userResponse.ok) {
         const userData = await userResponse.json();
+        
+        // Check for saved profile image in localStorage
+        const savedProfileImage = localStorage.getItem('profileImage');
+        if (savedProfileImage) {
+          userData.profileImage = JSON.parse(savedProfileImage);
+        }
+        
         setUser(userData);
         setIsAuthenticated(true);
       } else {
@@ -185,7 +223,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         login,
         register,
         logout,
-        error
+        error,
+        updateProfileImage
       }}
     >
       {children}

@@ -11,11 +11,12 @@ import WelcomePopup from './WelcomePopup';
 import DashboardTour from './DashboardTour';
 
 const Dashboard: React.FC = () => {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, updateProfileImage } = useAuth();
   const navigate = useNavigate();
   const [otherField, setOtherField] = useState<string>(sampleData.otherField || '');
   const [showWelcome, setShowWelcome] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [showImageUploader, setShowImageUploader] = useState(true);
   
   // Empty projects array for new users
   const recentProjects: CVData['recentProjects'] = [];
@@ -29,6 +30,15 @@ const Dashboard: React.FC = () => {
       navigate('/login');
     }
   }, [isAuthenticated, navigate]);
+
+  // Check if user has profile image
+  useEffect(() => {
+    if (user?.profileImage) {
+      setShowImageUploader(false);
+    } else {
+      setShowImageUploader(true);
+    }
+  }, [user?.profileImage]);
 
   // Check if user is new and show welcome popup
   useEffect(() => {
@@ -49,7 +59,17 @@ const Dashboard: React.FC = () => {
 
   const handleImageUploaded = (imageData: { url: string; publicId: string }) => {
     console.log('Profile image uploaded:', imageData);
-    // In a real application, you would update user profile with this image
+    // Update user profile with the new image
+    updateProfileImage(imageData);
+    // Hide image uploader
+    setShowImageUploader(false);
+  };
+
+  const handleRemoveImage = () => {
+    // Remove the profile image
+    updateProfileImage({ url: '', publicId: '' });
+    // Show the image uploader again
+    setShowImageUploader(true);
   };
 
   const handleWelcomeClose = (startTour: boolean) => {
@@ -87,7 +107,22 @@ const Dashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-brand-primary">CV Maker</h1>
           <div className="flex items-center space-x-4">
-            <span className="text-gray-700">Welcome, {user?.name || 'User'}</span>
+            <div className="flex items-center">
+              {user?.profileImage?.url ? (
+                <div className="h-10 w-10 rounded-full overflow-hidden mr-3 ring-2 ring-brand-light">
+                  <img 
+                    src={user.profileImage.url} 
+                    alt={user?.name || 'Profile'} 
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-brand-primary text-white flex items-center justify-center mr-3">
+                  {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+              )}
+              <span className="text-gray-700">Welcome, {user?.name || 'User'}</span>
+            </div>
             <button
               onClick={logout}
               className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-brand-primary hover:bg-brand-dark transition-colors duration-200"
@@ -113,17 +148,49 @@ const Dashboard: React.FC = () => {
               
               <div className="mt-6 bg-white p-5 rounded-lg shadow-sm profile-section">
                 <h3 className="text-lg font-medium mb-3">Your Profile</h3>
-                <div className="mb-4">
-                  <ImageUploader
-                    currentImage={null}
-                    onImageUploaded={handleImageUploaded}
-                    className="w-full h-48 object-cover"
-                  />
-                </div>
-                <div className="mt-3 text-center">
-                  <h4 className="font-medium">{user?.name || 'User'}</h4>
-                  <p className="text-sm text-gray-500">{user?.email || ''}</p>
-                </div>
+                {user?.profileImage?.url ? (
+                  <div className="mb-4 relative rounded-lg overflow-hidden border border-gray-200 aspect-square">
+                    <img 
+                      src={user.profileImage.url} 
+                      alt={user?.name || 'Profile'} 
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black bg-opacity-50 transition-opacity">
+                      <div className="space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowImageUploader(true)}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {showImageUploader && (
+                      <div className="mb-4">
+                        <ImageUploader
+                          currentImage={user?.profileImage || null}
+                          onImageUploaded={handleImageUploaded}
+                          className="w-full aspect-square object-cover"
+                        />
+                      </div>
+                    )}
+                    <div className="mt-3 text-center">
+                      <h4 className="font-medium">{user?.name || 'User'}</h4>
+                      <p className="text-sm text-gray-500">{user?.email || ''}</p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             

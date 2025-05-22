@@ -10,6 +10,11 @@ router.post('/', authMiddleware, upload.single('image'), async (req, res) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
     
+    console.log('File uploaded successfully:', {
+      path: req.file.path,
+      filename: req.file.filename
+    });
+    
     // Return the Cloudinary URL
     return res.status(200).json({ 
       imageUrl: req.file.path,
@@ -17,7 +22,7 @@ router.post('/', authMiddleware, upload.single('image'), async (req, res) => {
     });
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ message: 'Server error during upload' });
+    res.status(500).json({ message: `Server error during upload: ${error.message}` });
   }
 });
 
@@ -31,7 +36,7 @@ router.delete('/:publicId', authMiddleware, async (req, res) => {
     return res.status(200).json({ message: 'Image deleted successfully' });
   } catch (error) {
     console.error('Delete error:', error);
-    res.status(500).json({ message: 'Server error during deletion' });
+    res.status(500).json({ message: `Server error during deletion: ${error.message}` });
   }
 });
 
