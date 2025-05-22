@@ -49,6 +49,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const loadUser = async () => {
       try {
+        setLoading(true);
         // Get token from localStorage
         const storedToken = localStorage.getItem('token');
         
@@ -76,12 +77,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.error('Invalid token or authentication error:', response.status);
           localStorage.removeItem('token');
           setToken(null);
+          setIsAuthenticated(false);
         }
       } catch (err) {
         console.error('Authentication error:', err);
         // Clear invalid token on error
         localStorage.removeItem('token');
         setToken(null);
+        setIsAuthenticated(false);
       } finally {
         setLoading(false);
       }
@@ -127,10 +130,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const userData = await userResponse.json();
         setUser(userData);
         setIsAuthenticated(true);
+      } else {
+        throw new Error('Failed to fetch user data');
       }
     } catch (err: any) {
       setError(err.message || 'Login failed');
       console.error('Login error:', err);
+      setIsAuthenticated(false);
     } finally {
       setLoading(false);
     }
@@ -159,6 +165,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
+    setError(null);
+    
+    // Call backend logout endpoint
+    fetch('http://localhost:5000/api/auth/logout', {
+      credentials: 'include'
+    }).catch(err => {
+      console.error('Logout error:', err);
+    });
   };
 
   return (

@@ -11,7 +11,7 @@ import WelcomePopup from './WelcomePopup';
 import DashboardTour from './DashboardTour';
 
 const Dashboard: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [otherField, setOtherField] = useState<string>(sampleData.otherField || '');
   const [showWelcome, setShowWelcome] = useState(false);
@@ -22,6 +22,13 @@ const Dashboard: React.FC = () => {
 
   // Get featured templates
   const featuredTemplates = getFeaturedTemplates();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate]);
 
   // Check if user is new and show welcome popup
   useEffect(() => {
@@ -52,6 +59,15 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // If not authenticated, show loading spinner instead of dashboard
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       {showWelcome && (
@@ -71,7 +87,7 @@ const Dashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-brand-primary">CV Maker</h1>
           <div className="flex items-center space-x-4">
-            <span className="text-gray-700">Welcome, {user?.name || 'GenX Sportz'}</span>
+            <span className="text-gray-700">Welcome, {user?.name || 'User'}</span>
             <button
               onClick={logout}
               className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-brand-primary hover:bg-brand-dark transition-colors duration-200"
@@ -105,8 +121,8 @@ const Dashboard: React.FC = () => {
                   />
                 </div>
                 <div className="mt-3 text-center">
-                  <h4 className="font-medium">{user?.name || 'GenX Sportz'}</h4>
-                  <p className="text-sm text-gray-500">{user?.email || 'user@example.com'}</p>
+                  <h4 className="font-medium">{user?.name || 'User'}</h4>
+                  <p className="text-sm text-gray-500">{user?.email || ''}</p>
                 </div>
               </div>
             </div>

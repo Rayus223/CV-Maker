@@ -731,7 +731,33 @@ const DraggableListItem = ({
   );
 };
 
+// Add notification system at the top of the component
 const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
+  // Add notification state
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    message: string;
+    type: 'success' | 'error' | 'info';
+  }>({
+    show: false,
+    message: '',
+    type: 'success'
+  });
+
+  // Add showNotification function
+  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setNotification({
+      show: true,
+      message,
+      type
+    });
+
+    // Hide after 3 seconds
+    setTimeout(() => {
+      setNotification(prev => ({ ...prev, show: false }));
+    }, 3000);
+  };
+
   const canvasRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [activeElement, setActiveElement] = useState<string | null>(null);
@@ -1366,84 +1392,107 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     const elementId = getElementId(field, section, index, subfield);
     const style = getStyleForElement(field, section, index, subfield);
     
-      const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    // Select the element
-    selectElement(field, section, index, subfield);
-    
-    // Bring to front
-    bringToFront(elementId);
-    
-    // Double click to edit - prevent any other handlers from capturing this
-    if (e.detail === 2) {
-      e.preventDefault();
-      startEditing(field, section, index, subfield);
-      return false;
-    }
-  };
+    const handleClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      
+      // Select the element
+      selectElement(field, section, index, subfield);
+      
+      // Bring to front
+      bringToFront(elementId);
+      
+      // Double click to edit - prevent any other handlers from capturing this
+      if (e.detail === 2) {
+        e.preventDefault();
+        startEditing(field, section, index, subfield);
+        return false;
+      }
+    };
     
     // Conditional content based on editing state
     let content;
     if (isEditing) {
       if (isMultiline) {
         content = (
-          <div className="absolute z-50">
-            <textarea
-              value={value}
-              onChange={handleFieldChange}
-              onBlur={stopEditing}
-              onKeyDown={handleFieldKeyDown}
-              className={`border border-blue-400 p-1 focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
-              style={{ minWidth: '200px', width: '100%' }}
-              autoFocus
-              rows={3}
-              placeholder={isCustomElement ? "Enter text here..." : ""}
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-              }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-              }}
-            />
-          </div>
+          <textarea
+            value={value}
+            onChange={handleFieldChange}
+            onBlur={stopEditing}
+            onKeyDown={handleFieldKeyDown}
+            className={`border border-blue-400 p-1 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white resize-none ${className}`}
+            style={{
+              width: style.width || 'auto',
+              minWidth: '100px',
+              minHeight: '24px',
+              height: 'auto',
+              fontFamily: style.fontFamily,
+              fontSize: style.fontSize,
+              fontWeight: style.fontWeight,
+              fontStyle: style.fontStyle,
+              color: style.color,
+              lineHeight: '1.2',
+              margin: 0,
+              padding: '2px 4px'
+            }}
+            autoFocus
+            rows={1}
+            placeholder={isCustomElement ? "Enter text here..." : ""}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+          />
         );
       } else {
         content = (
-          <div className="absolute z-50">
-            <input
-              type="text"
-              value={value}
-              onChange={handleFieldChange}
-              onBlur={stopEditing}
-              onKeyDown={handleFieldKeyDown}
-              className={`border border-blue-400 p-1 focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
-              style={{ minWidth: '200px', width: '100%' }}
-              autoFocus
-              placeholder={isCustomElement ? "Enter text here..." : ""}
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-              }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-              }}
-            />
-          </div>
+          <input
+            type="text"
+            value={value}
+            onChange={handleFieldChange}
+            onBlur={stopEditing}
+            onKeyDown={handleFieldKeyDown}
+            className={`border border-blue-400 p-1 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white ${className}`}
+            style={{
+              width: style.width || 'auto',
+              minWidth: '100px',
+              height: '24px',
+              fontFamily: style.fontFamily,
+              fontSize: style.fontSize,
+              fontWeight: style.fontWeight,
+              fontStyle: style.fontStyle,
+              color: style.color,
+              lineHeight: '1.2',
+              margin: 0,
+              padding: '2px 4px'
+            }}
+            autoFocus
+            placeholder={isCustomElement ? "Enter text here..." : ""}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+          />
         );
       }
     } else {
-      // For custom elements, just show the value directly
-      // For CV fields, show with the field name
       content = (
         <div 
-          className={`${className} ${isSelected ? '' : ''} p-1 cursor-text`}
+          className={`${className} ${isSelected ? '' : ''} cursor-text break-words`}
           onClick={handleClick}
+          style={{
+            minHeight: '24px',
+            padding: '2px 4px'
+          }}
         >
-          {value}
+          {value || (isCustomElement ? "Click to edit" : "")}
         </div>
       );
     }
@@ -1659,30 +1708,6 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
       setElementStyles(initialStyles);
     }
   }, []);
-
-  // Add a notification system for actions
-  const [notification, setNotification] = useState<{
-    show: boolean;
-    message: string;
-    type: 'success' | 'error' | 'info';
-  }>({
-    show: false,
-    message: '',
-    type: 'success'
-  });
-
-  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
-    setNotification({
-      show: true,
-      message,
-      type
-    });
-
-    // Hide after 3 seconds
-    setTimeout(() => {
-      setNotification(prev => ({ ...prev, show: false }));
-    }, 3000);
-  };
 
   return (
     <DndProvider backend={HTML5Backend}>

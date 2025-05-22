@@ -44,13 +44,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'a default secret for development',
   resave: false,
-  saveUninitialized: true,
+  saveUninitialized: false,
   proxy: true,
   cookie: { 
-    secure: false,
-    sameSite: 'none',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000,
-    httpOnly: true
+    httpOnly: true,
+    path: '/'
   }
 }));
 

@@ -74,6 +74,21 @@ const ProtectedRoute: React.FC<{ element: React.ReactNode }> = ({ element }) => 
   return isAuthenticated ? <>{element}</> : <Navigate to="/login" />;
 };
 
+// Root route handler
+const RootRoute: React.FC = () => {
+  const { isAuthenticated, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-primary"></div>
+      </div>
+    );
+  }
+  
+  return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} />;
+};
+
 const AppRouter: React.FC = () => {
   return (
     <BrowserRouter>
@@ -86,8 +101,8 @@ const AppRouter: React.FC = () => {
         <Route path="/canva-editor" element={<ProtectedRoute element={<CanvaEditor />} />} />
         <Route path="/templates" element={<ProtectedRoute element={<Dashboard />} />} />
         <Route path="/templates/:id" element={<ProtectedRoute element={<TemplatePreview />} />} />
-        <Route path="/" element={<Navigate to="/dashboard" />} />
-        <Route path="*" element={<Navigate to="/dashboard" />} />
+        <Route path="/" element={<RootRoute />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
   );
