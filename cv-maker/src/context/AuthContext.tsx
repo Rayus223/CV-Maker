@@ -23,6 +23,7 @@ interface AuthContextType {
   logout: () => void;
   error: string | null;
   updateProfileImage: (imageData: { url: string; publicId: string }) => void;
+  setUser: (user: User | null) => void;
 }
 
 // Create the context with default values
@@ -36,6 +37,7 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => {},
   error: null,
   updateProfileImage: () => {},
+  setUser: () => {},
 });
 
 // Auth Provider props
@@ -77,10 +79,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (response.ok) {
           const userData = await response.json();
           
-          // Check for saved profile image in localStorage
-          const savedProfileImage = localStorage.getItem('profileImage');
-          if (savedProfileImage) {
-            userData.profileImage = JSON.parse(savedProfileImage);
+          // If the user doesn't have a profile image in the backend,
+          // check localStorage as a fallback
+          if (!userData.profileImage || !userData.profileImage.url) {
+            const savedProfileImage = localStorage.getItem('profileImage');
+            if (savedProfileImage) {
+              const parsedImage = JSON.parse(savedProfileImage);
+              userData.profileImage = parsedImage;
+              
+              // Upload the localStorage image to the backend for future persistence
+              try {
+                const updateResponse = await fetch('http://localhost:5000/api/users/profile', {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': storedToken,
+                    'x-auth-token': storedToken
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    profileImage: parsedImage
+                  })
+                });
+                
+                if (!updateResponse.ok) {
+                  console.error('Failed to sync profile image to server');
+                }
+              } catch (syncError) {
+                console.error('Error syncing profile image:', syncError);
+              }
+            }
           }
           
           setUser(userData);
@@ -107,21 +135,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   // Update profile image
-  const updateProfileImage = (imageData: { url: string; publicId: string }) => {
-    // Save profile image to localStorage for persistence
-    localStorage.setItem('profileImage', JSON.stringify(imageData));
-    
-    // Update user state with new profile image
-    setUser(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        profileImage: imageData
-      };
-    });
-    
-    // Here you would also make an API call to update the user's profile in the database
-    // But for now, we'll just keep it in localStorage
+  const updateProfileImage = async (imageData: { url: string; publicId: string }) => {
+    try {
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      
+      if (!token || !user) {
+        console.error('No token or user found, cannot update profile image');
+        return;
+      }
+      
+      // First update the local state for immediate UI feedback
+      setUser(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          profileImage: imageData
+        };
+      });
+      
+      // Then send update to the backend
+      const response = await fetch('http://localhost:5000/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token,
+          'x-auth-token': token
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          profileImage: imageData
+        })
+      });
+      
+      if (!response.ok) {
+        // If the backend update fails, we still keep the local update for UX
+        console.error('Failed to update profile image on server:', await response.text());
+      } else {
+        console.log('Profile image updated on server successfully');
+        
+        // Store in localStorage as backup/cache
+        localStorage.setItem('profileImage', JSON.stringify(imageData));
+      }
+    } catch (error) {
+      console.error('Error updating profile image:', error);
+    }
   };
 
   // Login user
@@ -160,10 +218,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (userResponse.ok) {
         const userData = await userResponse.json();
         
-        // Check for saved profile image in localStorage
-        const savedProfileImage = localStorage.getItem('profileImage');
-        if (savedProfileImage) {
-          userData.profileImage = JSON.parse(savedProfileImage);
+        // Only check local storage if the user doesn't have a profile image from backend
+        if (!userData.profileImage || !userData.profileImage.url) {
+          const savedProfileImage = localStorage.getItem('profileImage');
+          if (savedProfileImage) {
+            const parsedImage = JSON.parse(savedProfileImage);
+            userData.profileImage = parsedImage;
+            
+            // Upload the profile image to backend for future use
+            try {
+              const updateResponse = await fetch('http://localhost:5000/api/users/profile', {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': data.token,
+                  'x-auth-token': data.token
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                  profileImage: parsedImage
+                })
+              });
+              
+              if (!updateResponse.ok) {
+                console.error('Failed to sync profile image to server during login');
+              }
+            } catch (syncError) {
+              console.error('Error syncing profile image during login:', syncError);
+            }
+          }
         }
         
         setUser(userData);
@@ -224,7 +307,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         register,
         logout,
         error,
-        updateProfileImage
+        updateProfileImage,
+        setUser
       }}
     >
       {children}

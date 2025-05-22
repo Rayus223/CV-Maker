@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const passport = require('passport');
 const User = require('../models/User');
+const authMiddleware = require('../middleware/auth');
 
 // @route   POST api/users/register
 // @desc    Register a new user
@@ -48,9 +49,47 @@ router.get(
     res.json({
       id: req.user.id,
       name: req.user.name,
-      email: req.user.email
+      email: req.user.email,
+      profileImage: req.user.profileImage
     });
   }
 );
+
+// @route   PUT api/users/profile
+// @desc    Update user profile information
+// @access  Private
+router.put('/profile', authMiddleware, async (req, res) => {
+  const { name, email, profileImage } = req.body;
+  
+  try {
+    // Find user by ID
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Update user fields if provided
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (profileImage) {
+      user.profileImage = profileImage;
+    }
+    
+    // Save updated user
+    await user.save();
+    
+    // Return updated user
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      profileImage: user.profileImage
+    });
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 module.exports = router; 
