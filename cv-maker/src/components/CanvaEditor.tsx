@@ -758,6 +758,9 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     recentProjects: []
   } as CVData);
   
+  // State for custom text elements (not part of CV structure)
+  const [customTextElements, setCustomTextElements] = useState<{[key: string]: string}>({});
+  
   // Editing state
   const [currentlyEditing, setCurrentlyEditing] = useState<{
     field: string;
@@ -785,6 +788,155 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     type: string;
   } | null>(null);
   
+  // Add state for section order
+  const [sectionOrder, setSectionOrder] = useState<string[]>([
+    'personal',
+    'experience',
+    'education',
+    'skills'
+  ]);
+
+  // Add a state variable to track the next z-index to use
+  const [nextZIndex, setNextZIndex] = useState<number>(100);
+
+  // Duplicate the selected element
+  const handleDuplicateElement = (id: string) => {
+    // Find the element style
+    const elementIndex = elementStyles.findIndex(style => style.id === id);
+    if (elementIndex === -1) return;
+    
+    const elementStyle = elementStyles[elementIndex];
+    
+    // Create a new unique ID for the duplicate
+    const timestamp = new Date().getTime();
+    const newId = `custom-text-${timestamp}`;
+    
+    // Create a duplicate style with slightly offset position
+    const duplicateStyle: TextStyle = {
+      ...elementStyle.style,
+      position: {
+        ...elementStyle.style.position!,
+        x: (elementStyle.style.position?.x || 0) + 20,
+        y: (elementStyle.style.position?.y || 0) + 20,
+        zIndex: nextZIndex
+      }
+    };
+    
+    // Add the new element style
+    setElementStyles(prev => [...prev, { id: newId, style: duplicateStyle }]);
+    
+    // If this is a custom text element, duplicate its content too
+    if (id.startsWith('custom-text-')) {
+      setCustomTextElements(prev => ({
+        ...prev,
+        [newId]: prev[id] || ''
+      }));
+    }
+    
+    // Increment the z-index for future elements
+    setNextZIndex(prev => prev + 1);
+    
+    // Select the newly duplicated element
+    selectElement(newId);
+    
+    // Show notification
+    showNotification('Element duplicated', 'success');
+  };
+
+  // Delete the selected element
+  const handleDeleteElement = (id: string) => {
+    // Remove the element style
+    setElementStyles(prev => prev.filter(style => style.id !== id));
+    
+    // If this is a custom text element, remove it from customTextElements
+    if (id.startsWith('custom-text-')) {
+      setCustomTextElements(prev => {
+        const newElements = { ...prev };
+        delete newElements[id];
+        return newElements;
+      });
+    }
+    
+    // If the deleted element was selected, clear selection
+    if (selectedElement && getElementId(
+      selectedElement.field, 
+      selectedElement.section, 
+      selectedElement.index, 
+      selectedElement.subfield
+    ) === id) {
+      setSelectedElement(null);
+      setActiveElement(null);
+    }
+    
+    // Show notification
+    showNotification('Element deleted', 'info');
+  };
+
+  // Copy the selected element
+  const handleCopyElement = (id: string) => {
+    // Find the element style
+    const elementIndex = elementStyles.findIndex(style => style.id === id);
+    if (elementIndex === -1) return;
+    
+    const elementStyle = elementStyles[elementIndex];
+    
+    // Get the content if it's a custom text element
+    const content = id.startsWith('custom-text-') ? customTextElements[id] : undefined;
+    
+    // Store the copied element's style and content
+    setCopiedElement({
+      style: { ...elementStyle.style },
+      content,
+      type: id.split('-')[0] // Store the type of element for potential use
+    });
+    
+    // Show notification
+    showNotification('Element copied to clipboard', 'success');
+  };
+
+  // Paste the copied element
+  const handlePasteElement = () => {
+    if (!copiedElement) {
+      showNotification('Nothing to paste', 'error');
+      return;
+    }
+    
+    // Create a new unique ID for the pasted element
+    const timestamp = new Date().getTime();
+    const newId = `custom-text-${timestamp}`;
+    
+    // Create a paste style with slightly offset position from the original
+    const pasteStyle: TextStyle = {
+      ...copiedElement.style,
+      position: {
+        ...copiedElement.style.position!,
+        x: (copiedElement.style.position?.x || 0) + 20,
+        y: (copiedElement.style.position?.y || 0) + 20,
+        zIndex: nextZIndex
+      }
+    };
+    
+    // Add the new element style
+    setElementStyles(prev => [...prev, { id: newId, style: pasteStyle }]);
+    
+    // If there was content, add it to customTextElements
+    if (copiedElement.content !== undefined) {
+      setCustomTextElements(prev => ({
+        ...prev,
+        [newId]: copiedElement.content || ''
+      }));
+    }
+    
+    // Increment the z-index for future elements
+    setNextZIndex(prev => prev + 1);
+    
+    // Select the newly pasted element
+    selectElement(newId);
+    
+    // Show notification
+    showNotification('Element pasted', 'success');
+  };
+
   // Get element ID
   const getElementId = (field: string, section?: string, index?: number, subfield?: string): string => {
     return `${field}${section ? `-${section}` : ''}${index !== undefined ? `-${index}` : ''}${subfield ? `-${subfield}` : ''}`;
@@ -937,6 +1089,17 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     
     const { field, section, index, subfield } = currentlyEditing;
     
+    // Check if this is a custom text element (starts with 'custom-text-')
+    if (field.startsWith('custom-text-')) {
+      // Update custom text elements
+      setCustomTextElements(prev => ({
+        ...prev,
+        [field]: e.target.value
+      }));
+      return;
+    }
+    
+    // Handle regular CV structure fields
     setCvData(prev => {
       const newData = { ...prev };
       
@@ -1102,9 +1265,6 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     setActiveElement(id);
   };
   
-  // Add a state variable to track the next z-index to use
-  const [nextZIndex, setNextZIndex] = useState<number>(100);
-  
   // Handle element position update in absolute positioning
   const handleElementMove = (id: string, xDelta: number, yDelta: number, styleUpdates?: Partial<TextStyle>) => {
     setElementStyles(prev => {
@@ -1181,7 +1341,8 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     index, 
     subfield,
     className = "",
-    isMultiline = false
+    isMultiline = false,
+    isCustomElement = false
   }: { 
     value: string, 
     field: string,
@@ -1189,7 +1350,8 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     index?: number,
     subfield?: string,
     className?: string,
-    isMultiline?: boolean
+    isMultiline?: boolean,
+    isCustomElement?: boolean
   }) => {
     const isEditing = currentlyEditing?.field === field && 
                      currentlyEditing?.section === section && 
@@ -1236,6 +1398,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
               style={{ minWidth: '200px', width: '100%' }}
               autoFocus
               rows={3}
+              placeholder={isCustomElement ? "Enter text here..." : ""}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -1259,6 +1422,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
               className={`border border-blue-400 p-1 focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
               style={{ minWidth: '200px', width: '100%' }}
               autoFocus
+              placeholder={isCustomElement ? "Enter text here..." : ""}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -1272,6 +1436,8 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         );
       }
     } else {
+      // For custom elements, just show the value directly
+      // For CV fields, show with the field name
       content = (
         <div 
           className={`${className} ${isSelected ? '' : ''} p-1 cursor-text`}
@@ -1304,14 +1470,6 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     updateActiveElementStyle({ color: e.target.value });
   };
 
-  // Add state for section order
-  const [sectionOrder, setSectionOrder] = useState<string[]>([
-    'personal',
-    'experience',
-    'education',
-    'skills'
-  ]);
-  
   // Move a section
   const moveSection = (dragIndex: number, hoverIndex: number) => {
     const newSectionOrder = [...sectionOrder];
@@ -1373,6 +1531,18 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   useEffect(() => {
     // Only run once when component mounts
     if (elementStyles.length === 0) {
+      // Don't create elements for empty CV
+      const isEmpty = !cvData.firstName && !cvData.lastName && 
+                     cvData.experience.length === 0 && 
+                     cvData.education.length === 0 && 
+                     cvData.skills.length === 0;
+                     
+      if (isEmpty) {
+        // Just set empty styles for the blank canvas
+        setElementStyles([]);
+        return;
+      }
+      
       // Create initial positions for common elements
       const initialStyles = [
         // Header elements
@@ -1383,198 +1553,112 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         { id: getElementId('email'), style: { ...defaultStyle, position: { x: 40, y: 140, zIndex: 8 }}},
         { id: getElementId('phone'), style: { ...defaultStyle, position: { x: 300, y: 140, zIndex: 8 }}},
         { id: getElementId('address'), style: { ...defaultStyle, position: { x: 560, y: 140, zIndex: 8 }}},
-        
-        // Section headers
-        { id: getElementId('experienceHeader'), style: { ...defaultStyle, fontSize: '22px', fontWeight: 'bold', position: { x: 40, y: 200, zIndex: 7 }}},
       ];
       
-      // Experience items
-      let yPos = 250;
-      cvData.experience.forEach((exp, index) => {
+      // Only add sections if there's content
+      if (cvData.experience.length > 0) {
+        // Add experience header
         initialStyles.push({ 
-          id: getElementId('position', 'experience', index, 'position'), 
-          style: { ...defaultStyle, fontWeight: 'bold', position: { x: 40, y: yPos, zIndex: 6 }}
+          id: getElementId('experienceHeader'), 
+          style: { ...defaultStyle, fontSize: '22px', fontWeight: 'bold', position: { x: 40, y: 200, zIndex: 7 }}
         });
         
-        initialStyles.push({ 
-          id: getElementId('company', 'experience', index, 'company'), 
-          style: { ...defaultStyle, position: { x: 40, y: yPos + 30, zIndex: 5 }}
-        });
-        
-        initialStyles.push({ 
-          id: getElementId('dates', 'experience', index, 'dates'), 
-          style: { ...defaultStyle, position: { x: 300, y: yPos + 30, zIndex: 5 }}
-        });
-        
-        // Tasks
-        let taskYPos = yPos + 70;
-        exp.tasks.forEach((task, taskIndex) => {
+        // Experience items
+        let yPos = 250;
+        cvData.experience.forEach((exp, index) => {
           initialStyles.push({ 
-            id: getElementId('task', 'experience', index, `tasks[${taskIndex}]`), 
-            style: { ...defaultStyle, position: { x: 60, y: taskYPos, zIndex: 4 }}
+            id: getElementId('position', 'experience', index, 'position'), 
+            style: { ...defaultStyle, fontWeight: 'bold', position: { x: 40, y: yPos, zIndex: 6 }}
           });
-          taskYPos += 30;
+          
+          initialStyles.push({ 
+            id: getElementId('company', 'experience', index, 'company'), 
+            style: { ...defaultStyle, position: { x: 40, y: yPos + 30, zIndex: 5 }}
+          });
+          
+          initialStyles.push({ 
+            id: getElementId('dates', 'experience', index, 'dates'), 
+            style: { ...defaultStyle, position: { x: 300, y: yPos + 30, zIndex: 5 }}
+          });
+          
+          // Tasks
+          let taskYPos = yPos + 70;
+          exp.tasks.forEach((task, taskIndex) => {
+            initialStyles.push({ 
+              id: getElementId('task', 'experience', index, `tasks[${taskIndex}]`), 
+              style: { ...defaultStyle, position: { x: 60, y: taskYPos, zIndex: 4 }}
+            });
+            taskYPos += 30;
+          });
+          
+          yPos = taskYPos + 30;
         });
-        
-        yPos = taskYPos + 30;
-      });
+      }
       
-      // Add Education header
-      initialStyles.push({ 
-        id: getElementId('educationHeader'), 
-        style: { ...defaultStyle, fontSize: '22px', fontWeight: 'bold', position: { x: 40, y: yPos, zIndex: 7 }}
-      });
+             // Add Education section if there's content
+       if (cvData.education.length > 0) {
+         const eduHeaderY = cvData.experience.length > 0 ? 
+           initialStyles.reduce((maxY, item) => 
+             Math.max(maxY, (item.style.position?.y || 0) + 50), 250) :
+           200;
+             
+        initialStyles.push({ 
+          id: getElementId('educationHeader'), 
+          style: { ...defaultStyle, fontSize: '22px', fontWeight: 'bold', position: { x: 40, y: eduHeaderY, zIndex: 7 }}
+        });
+        
+                  // Education items
+         let eduYPos = eduHeaderY + 50;
+        cvData.education.forEach((edu, index) => {
+          initialStyles.push({ 
+            id: getElementId('degree', 'education', index, 'degree'), 
+            style: { ...defaultStyle, fontWeight: 'bold', position: { x: 40, y: eduYPos, zIndex: 6 }}
+          });
+          
+          initialStyles.push({ 
+            id: getElementId('institution', 'education', index, 'institution'), 
+            style: { ...defaultStyle, position: { x: 40, y: eduYPos + 30, zIndex: 5 }}
+          });
+          
+          initialStyles.push({ 
+            id: getElementId('dates', 'education', index, 'dates'), 
+            style: { ...defaultStyle, position: { x: 300, y: eduYPos + 30, zIndex: 5 }}
+          });
+          
+          eduYPos += 70;
+        });
+      }
       
-      // Education items
-      yPos += 50;
-      cvData.education.forEach((edu, index) => {
+             // Add Skills section if there's content
+       if (cvData.skills.length > 0) {
+         const skillsHeaderY = initialStyles.reduce((maxY, item) => 
+           Math.max(maxY, (item.style.position?.y || 0) + 50), 200);
+           
         initialStyles.push({ 
-          id: getElementId('degree', 'education', index, 'degree'), 
-          style: { ...defaultStyle, fontWeight: 'bold', position: { x: 40, y: yPos, zIndex: 6 }}
+          id: getElementId('skillsHeader'), 
+          style: { ...defaultStyle, fontSize: '22px', fontWeight: 'bold', position: { x: 40, y: skillsHeaderY, zIndex: 7 }}
         });
         
-        initialStyles.push({ 
-          id: getElementId('institution', 'education', index, 'institution'), 
-          style: { ...defaultStyle, position: { x: 40, y: yPos + 30, zIndex: 5 }}
+        // Skills
+         let skillYPos = skillsHeaderY + 50;
+        let skillX = 40;
+        cvData.skills.forEach((skill, index) => {
+          initialStyles.push({ 
+            id: getElementId('skill', 'skills', index), 
+            style: { ...defaultStyle, position: { x: skillX, y: skillYPos, zIndex: 6 }}
+          });
+          
+          skillX += 180;
+          if (skillX > 500) {
+            skillX = 40;
+            skillYPos += 30;
+          }
         });
-        
-        initialStyles.push({ 
-          id: getElementId('dates', 'education', index, 'dates'), 
-          style: { ...defaultStyle, position: { x: 300, y: yPos + 30, zIndex: 5 }}
-        });
-        
-        yPos += 70;
-      });
-      
-      // Add Skills header
-      initialStyles.push({ 
-        id: getElementId('skillsHeader'), 
-        style: { ...defaultStyle, fontSize: '22px', fontWeight: 'bold', position: { x: 40, y: yPos, zIndex: 7 }}
-      });
-      
-      // Skills
-      yPos += 50;
-      let skillX = 40;
-      cvData.skills.forEach((skill, index) => {
-        initialStyles.push({ 
-          id: getElementId('skill', 'skills', index), 
-          style: { ...defaultStyle, position: { x: skillX, y: yPos, zIndex: 6 }}
-        });
-        
-        skillX += 180;
-        if (skillX > 500) {
-          skillX = 40;
-          yPos += 30;
-        }
-      });
+      }
       
       setElementStyles(initialStyles);
     }
   }, []);
-
-  // Duplicate the selected element
-  const handleDuplicateElement = (id: string) => {
-    // Find the element style
-    const elementIndex = elementStyles.findIndex(style => style.id === id);
-    if (elementIndex === -1) return;
-    
-    const elementStyle = elementStyles[elementIndex];
-    
-    // Create a new unique ID for the duplicate
-    // We'll use timestamp to ensure uniqueness
-    const timestamp = new Date().getTime();
-    const newId = `${id}-duplicate-${timestamp}`;
-    
-    // Create a duplicate style with slightly offset position
-    const duplicateStyle: TextStyle = {
-      ...elementStyle.style,
-      position: {
-        ...elementStyle.style.position!,
-        x: (elementStyle.style.position?.x || 0) + 20,
-        y: (elementStyle.style.position?.y || 0) + 20,
-        zIndex: nextZIndex
-      }
-    };
-    
-    // Add the new element style
-    setElementStyles(prev => [...prev, { id: newId, style: duplicateStyle }]);
-    
-    // Increment the z-index for future elements
-    setNextZIndex(prev => prev + 1);
-    
-    // Show notification
-    showNotification('Element duplicated', 'success');
-  };
-
-  // Delete the selected element
-  const handleDeleteElement = (id: string) => {
-    // Remove the element style
-    setElementStyles(prev => prev.filter(style => style.id !== id));
-    
-    // If the deleted element was selected, clear selection
-    if (selectedElement && getElementId(
-      selectedElement.field, 
-      selectedElement.section, 
-      selectedElement.index, 
-      selectedElement.subfield
-    ) === id) {
-      setSelectedElement(null);
-      setActiveElement(null);
-    }
-    
-    // Show notification
-    showNotification('Element deleted', 'info');
-  };
-
-  // Copy the selected element
-  const handleCopyElement = (id: string) => {
-    // Find the element style
-    const elementIndex = elementStyles.findIndex(style => style.id === id);
-    if (elementIndex === -1) return;
-    
-    const elementStyle = elementStyles[elementIndex];
-    
-    // Store the copied element's style
-    setCopiedElement({
-      style: { ...elementStyle.style },
-      type: id.split('-')[0] // Store the type of element for potential use
-    });
-    
-    // Show notification
-    showNotification('Element copied to clipboard', 'success');
-  };
-
-  // Paste the copied element
-  const handlePasteElement = () => {
-    if (!copiedElement) {
-      showNotification('Nothing to paste', 'error');
-      return;
-    }
-    
-    // Create a new unique ID for the pasted element
-    const timestamp = new Date().getTime();
-    let newId = `${copiedElement.type}-pasted-${timestamp}`;
-    
-    // Create a paste style with slightly offset position from the original
-    const pasteStyle: TextStyle = {
-      ...copiedElement.style,
-      position: {
-        ...copiedElement.style.position!,
-        x: (copiedElement.style.position?.x || 0) + 20,
-        y: (copiedElement.style.position?.y || 0) + 20,
-        zIndex: nextZIndex
-      }
-    };
-    
-    // Add the new element style
-    setElementStyles(prev => [...prev, { id: newId, style: pasteStyle }]);
-    
-    // Increment the z-index for future elements
-    setNextZIndex(prev => prev + 1);
-    
-    // Show notification
-    showNotification('Element pasted', 'success');
-  };
 
   // Add a notification system for actions
   const [notification, setNotification] = useState<{
@@ -1739,11 +1823,60 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
               <div className="mb-6">
                 <h2 className="text-sm font-medium text-gray-700 mb-2">Elements</h2>
                 <div className="space-y-2">
-                  <button className="flex items-center gap-2 w-full p-2 rounded hover:bg-gray-100">
+                  <button 
+                    className="flex items-center gap-2 w-full p-2 rounded hover:bg-gray-100"
+                    onClick={() => {
+                      // Create a unique ID for the new text element
+                      const timestamp = new Date().getTime();
+                      const id = `custom-text-${timestamp}`;
+                      
+                      // Calculate position - center in the visible viewport
+                      const canvasRect = canvasRef.current?.getBoundingClientRect();
+                      const viewportWidth = canvasRect?.width || 800;
+                      const scrollTop = canvasRef.current?.parentElement?.scrollTop || 0;
+                      
+                      const x = (viewportWidth / 2) - 100;
+                      const y = (scrollTop / (zoom / 100)) + 200;
+                      
+                      // Create the new text element with default style
+                      const newStyle = { 
+                        ...defaultStyle, 
+                        fontSize: '16px',
+                        fontWeight: 'normal',
+                        width: 200, // Give it a default width
+                        position: { 
+                          x, 
+                          y, 
+                          zIndex: nextZIndex 
+                        } 
+                      };
+                      
+                      // Add to element styles
+                      setElementStyles(prev => [...prev, { id, style: newStyle }]);
+                      setNextZIndex(prev => prev + 1);
+                      
+                      // Add custom text element to custom elements state
+                      setCustomTextElements(prev => ({
+                        ...prev, 
+                        [id]: ""  // Start with empty string
+                      }));
+                      
+                      // Select the new element
+                      selectElement(id);
+                      
+                      // Start editing immediately
+                      setTimeout(() => {
+                        startEditing(id);
+                      }, 100);
+                      
+                      // Show notification
+                      showNotification('Text element added', 'success');
+                    }}
+                  >
                     <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                     </svg>
-                    <span>Text</span>
+                    <span>Add Text</span>
                   </button>
                   
                   <button className="flex items-center gap-2 w-full p-2 rounded hover:bg-gray-100">
@@ -1803,101 +1936,32 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
                 transformOrigin: 'center top',
               }}
             >
+              {/* Empty state prompt when canvas is completely empty (no CV data and no custom text elements) */}
+              {!cvData.firstName && !cvData.lastName && 
+               cvData.experience.length === 0 && 
+               cvData.education.length === 0 && 
+               Object.keys(customTextElements).length === 0 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h2 className="text-xl font-medium mb-2">Your Canvas is Empty</h2>
+                  <p className="text-center max-w-md px-6">Click the text tool in the left sidebar to add content, or use the templates to get started quickly.</p>
+                </div>
+              )}
+              
               {/* Canvas with absolute positioned elements */}
               <DesignCanvas onDrop={handleElementMove}>
-                {/* Special heading for "Experience" */}
-                <CanvaElement
-                  id={getElementId('experienceHeader')}
-                  style={getStyleForElement('experienceHeader')}
-                  isSelected={selectedElement?.field === 'experienceHeader'}
-                  onClick={(e: React.MouseEvent<HTMLDivElement>) => {
-                    e.stopPropagation();
-                    selectElement('experienceHeader');
-                    bringToFront(getElementId('experienceHeader'));
-                  }}
-                  onDragEnd={(id: string, x: number, y: number) => handleElementMove(id, x, y)}
-                  onDuplicate={handleDuplicateElement}
-                  onDelete={handleDeleteElement}
-                  onCopy={handleCopyElement}
-                  onPaste={handlePasteElement}
-                >
-                  <div className="text-xl font-bold">Experience</div>
-                </CanvaElement>
-                
-                {/* Special heading for "Education" */}
-                <CanvaElement
-                  id={getElementId('educationHeader')}
-                  style={getStyleForElement('educationHeader')}
-                  isSelected={selectedElement?.field === 'educationHeader'}
-                  onClick={(e: React.MouseEvent<HTMLDivElement>) => {
-                    e.stopPropagation();
-                    selectElement('educationHeader');
-                    bringToFront(getElementId('educationHeader'));
-                  }}
-                  onDragEnd={(id: string, x: number, y: number) => handleElementMove(id, x, y)}
-                  onDuplicate={handleDuplicateElement}
-                  onDelete={handleDeleteElement}
-                  onCopy={handleCopyElement}
-                  onPaste={handlePasteElement}
-                >
-                  <div className="text-xl font-bold">Education</div>
-                </CanvaElement>
-                
-                {/* Special heading for "Skills" */}
-                <CanvaElement
-                  id={getElementId('skillsHeader')}
-                  style={getStyleForElement('skillsHeader')}
-                  isSelected={selectedElement?.field === 'skillsHeader'}
-                  onClick={(e: React.MouseEvent<HTMLDivElement>) => {
-                    e.stopPropagation();
-                    selectElement('skillsHeader');
-                    bringToFront(getElementId('skillsHeader'));
-                  }}
-                  onDragEnd={(id: string, x: number, y: number) => handleElementMove(id, x, y)}
-                  onDuplicate={handleDuplicateElement}
-                  onDelete={handleDeleteElement}
-                  onCopy={handleCopyElement}
-                  onPaste={handlePasteElement}
-                >
-                  <div className="text-xl font-bold">Skills</div>
-                </CanvaElement>
-
-                {/* Full Name */}
-                {currentlyEditing?.field === 'fullName' ? (
+                {/* Only show section headers for existing CV data */}
+                {(initialData || cvData.experience.length > 0) && (
                   <CanvaElement
-                    id={getElementId('fullName')}
-                    style={getStyleForElement('fullName')}
-                    isSelected={true}
-                    onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
-                    onDragEnd={(id: string, x: number, y: number) => handleElementMove(id, x, y)}
-                    onDuplicate={handleDuplicateElement}
-                    onDelete={handleDeleteElement}
-                    onCopy={handleCopyElement}
-                    onPaste={handlePasteElement}
-                  >
-                    <input
-                      type="text"
-                      value={`${cvData.firstName} ${cvData.lastName}`}
-                      onChange={handleNameChange}
-                      onBlur={stopEditing}
-                      onKeyDown={handleFieldKeyDown}
-                      className="border border-blue-400 p-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </CanvaElement>
-                ) : (
-                  <CanvaElement
-                    id={getElementId('fullName')}
-                    style={getStyleForElement('fullName')}
-                    isSelected={selectedElement?.field === 'fullName'}
+                    id={getElementId('experienceHeader')}
+                    style={getStyleForElement('experienceHeader')}
+                    isSelected={selectedElement?.field === 'experienceHeader'}
                     onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                       e.stopPropagation();
-                      selectElement('fullName');
-                      bringToFront(getElementId('fullName'));
-                      if (e.detail === 2) {
-                        startEditing('fullName');
-                      }
+                      selectElement('experienceHeader');
+                      bringToFront(getElementId('experienceHeader'));
                     }}
                     onDragEnd={(id: string, x: number, y: number) => handleElementMove(id, x, y)}
                     onDuplicate={handleDuplicateElement}
@@ -1905,125 +1969,296 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
                     onCopy={handleCopyElement}
                     onPaste={handlePasteElement}
                   >
-                    <div className="text-3xl font-bold">
-                      {`${cvData.firstName} ${cvData.lastName}`}
-                    </div>
+                    <div className="text-xl font-bold">Experience</div>
+                  </CanvaElement>
+                )}
+                
+                {/* Special heading for "Education" */}
+                {(initialData || cvData.education.length > 0) && (
+                  <CanvaElement
+                    id={getElementId('educationHeader')}
+                    style={getStyleForElement('educationHeader')}
+                    isSelected={selectedElement?.field === 'educationHeader'}
+                    onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+                      e.stopPropagation();
+                      selectElement('educationHeader');
+                      bringToFront(getElementId('educationHeader'));
+                    }}
+                    onDragEnd={(id: string, x: number, y: number) => handleElementMove(id, x, y)}
+                    onDuplicate={handleDuplicateElement}
+                    onDelete={handleDeleteElement}
+                    onCopy={handleCopyElement}
+                    onPaste={handlePasteElement}
+                  >
+                    <div className="text-xl font-bold">Education</div>
+                  </CanvaElement>
+                )}
+                
+                {/* Special heading for "Skills" */}
+                {(initialData || cvData.skills.length > 0) && (
+                  <CanvaElement
+                    id={getElementId('skillsHeader')}
+                    style={getStyleForElement('skillsHeader')}
+                    isSelected={selectedElement?.field === 'skillsHeader'}
+                    onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+                      e.stopPropagation();
+                      selectElement('skillsHeader');
+                      bringToFront(getElementId('skillsHeader'));
+                    }}
+                    onDragEnd={(id: string, x: number, y: number) => handleElementMove(id, x, y)}
+                    onDuplicate={handleDuplicateElement}
+                    onDelete={handleDeleteElement}
+                    onCopy={handleCopyElement}
+                    onPaste={handlePasteElement}
+                  >
+                    <div className="text-xl font-bold">Skills</div>
                   </CanvaElement>
                 )}
 
-                {/* Job title */}
-                <EditableField 
-                  value={cvData.title} 
-                  field="title"
-                  className=""
-                />
-                
-                {/* Contact Information */}
-                <EditableField 
-                  value={`Email: ${cvData.email}`} 
-                  field="email"
-                  className=""
-                />
-                
-                <EditableField 
-                  value={`Phone: ${cvData.phone}`} 
-                  field="phone"
-                  className=""
-                />
-                
-                <EditableField 
-                  value={`Location: ${cvData.address}`} 
-                  field="address"
-                  className=""
-                />
-                
-                {/* Experience items */}
-                {cvData.experience.map((exp, index) => (
-                  <React.Fragment key={`exp-${index}`}>
+                {/* Check if this is an imported/existing CV with data */}
+                {(initialData || cvData.firstName || cvData.lastName || 
+                 cvData.experience.length > 0 || cvData.education.length > 0 || 
+                 cvData.skills.length > 0) && (
+                  <>
+                    {/* Full Name */}
+                    {currentlyEditing?.field === 'fullName' ? (
+                      <CanvaElement
+                        id={getElementId('fullName')}
+                        style={getStyleForElement('fullName')}
+                        isSelected={true}
+                        onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
+                        onDragEnd={(id: string, x: number, y: number) => handleElementMove(id, x, y)}
+                        onDuplicate={handleDuplicateElement}
+                        onDelete={handleDeleteElement}
+                        onCopy={handleCopyElement}
+                        onPaste={handlePasteElement}
+                      >
+                        <input
+                          type="text"
+                          value={`${cvData.firstName} ${cvData.lastName}`}
+                          onChange={handleNameChange}
+                          onBlur={stopEditing}
+                          onKeyDown={handleFieldKeyDown}
+                          className="border border-blue-400 p-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </CanvaElement>
+                    ) : (
+                      <CanvaElement
+                        id={getElementId('fullName')}
+                        style={getStyleForElement('fullName')}
+                        isSelected={selectedElement?.field === 'fullName'}
+                        onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+                          e.stopPropagation();
+                          selectElement('fullName');
+                          bringToFront(getElementId('fullName'));
+                          if (e.detail === 2) {
+                            startEditing('fullName');
+                          }
+                        }}
+                        onDragEnd={(id: string, x: number, y: number) => handleElementMove(id, x, y)}
+                        onDuplicate={handleDuplicateElement}
+                        onDelete={handleDeleteElement}
+                        onCopy={handleCopyElement}
+                        onPaste={handlePasteElement}
+                      >
+                        <div className="text-3xl font-bold">
+                          {`${cvData.firstName} ${cvData.lastName}`}
+                        </div>
+                      </CanvaElement>
+                    )}
+
+                    {/* Job title */}
                     <EditableField 
-                      value={exp.position} 
-                      field="position"
-                      section="experience"
-                      index={index}
-                      subfield="position"
+                      value={cvData.title} 
+                      field="title"
+                      className=""
+                    />
+                    
+                    {/* Contact Information */}
+                    <EditableField 
+                      value={`Email: ${cvData.email}`} 
+                      field="email"
                       className=""
                     />
                     
                     <EditableField 
-                      value={exp.company} 
-                      field="company"
-                      section="experience"
-                      index={index}
-                      subfield="company"
+                      value={`Phone: ${cvData.phone}`} 
+                      field="phone"
                       className=""
                     />
                     
                     <EditableField 
-                      value={`${exp.startDate} - ${exp.endDate}`} 
-                      field="dates"
-                      section="experience"
-                      index={index}
-                      subfield="dates"
+                      value={`Location: ${cvData.address}`} 
+                      field="address"
                       className=""
                     />
                     
-                    {exp.tasks.map((task, taskIndex) => (
+                    {/* Experience items */}
+                    {cvData.experience.map((exp, index) => (
+                      <React.Fragment key={`exp-${index}`}>
+                        <EditableField 
+                          value={exp.position} 
+                          field="position"
+                          section="experience"
+                          index={index}
+                          subfield="position"
+                          className=""
+                        />
+                        
+                        <EditableField 
+                          value={exp.company} 
+                          field="company"
+                          section="experience"
+                          index={index}
+                          subfield="company"
+                          className=""
+                        />
+                        
+                        <EditableField 
+                          value={`${exp.startDate} - ${exp.endDate}`} 
+                          field="dates"
+                          section="experience"
+                          index={index}
+                          subfield="dates"
+                          className=""
+                        />
+                        
+                        {exp.tasks.map((task, taskIndex) => (
+                          <EditableField 
+                            key={`task-${index}-${taskIndex}`}
+                            value={`• ${task}`} 
+                            field="task"
+                            section="experience"
+                            index={index}
+                            subfield={`tasks[${taskIndex}]`}
+                            className=""
+                          />
+                        ))}
+                      </React.Fragment>
+                    ))}
+                    
+                    {/* Education items */}
+                    {cvData.education.map((edu, index) => (
+                      <React.Fragment key={`edu-${index}`}>
+                        <EditableField 
+                          value={edu.degree} 
+                          field="degree"
+                          section="education"
+                          index={index}
+                          subfield="degree"
+                          className=""
+                        />
+                        
+                        <EditableField 
+                          value={edu.institution} 
+                          field="institution"
+                          section="education"
+                          index={index}
+                          subfield="institution"
+                          className=""
+                        />
+                        
+                        <EditableField 
+                          value={`${edu.startDate} - ${edu.endDate}`} 
+                          field="dates"
+                          section="education"
+                          index={index}
+                          subfield="dates"
+                          className=""
+                        />
+                      </React.Fragment>
+                    ))}
+                    
+                    {/* Skills */}
+                    {cvData.skills.map((skill, index) => (
                       <EditableField 
-                        key={`task-${index}-${taskIndex}`}
-                        value={`• ${task}`} 
-                        field="task"
-                        section="experience"
+                        key={`skill-${index}`}
+                        value={skill} 
+                        field="skill"
+                        section="skills"
                         index={index}
-                        subfield={`tasks[${taskIndex}]`}
                         className=""
                       />
                     ))}
-                  </React.Fragment>
-                ))}
+                  </>
+                )}
                 
-                {/* Education items */}
-                {cvData.education.map((edu, index) => (
-                  <React.Fragment key={`edu-${index}`}>
-                    <EditableField 
-                      value={edu.degree} 
-                      field="degree"
-                      section="education"
-                      index={index}
-                      subfield="degree"
-                      className=""
-                    />
-                    
-                    <EditableField 
-                      value={edu.institution} 
-                      field="institution"
-                      section="education"
-                      index={index}
-                      subfield="institution"
-                      className=""
-                    />
-                    
-                    <EditableField 
-                      value={`${edu.startDate} - ${edu.endDate}`} 
-                      field="dates"
-                      section="education"
-                      index={index}
-                      subfield="dates"
-                      className=""
-                    />
-                  </React.Fragment>
-                ))}
-                
-                {/* Skills */}
-                {cvData.skills.map((skill, index) => (
-                  <EditableField 
-                    key={`skill-${index}`}
-                    value={skill} 
-                    field="skill"
-                    section="skills"
-                    index={index}
-                    className=""
-                  />
-                ))}
+                {/* Render custom text elements */}
+                {Object.entries(customTextElements).map(([id, text]) => {
+                  // Directly render custom text elements
+                  const style = getStyleForElement(id);
+                  
+                  return (
+                    <CanvaElement
+                      key={id}
+                      id={id}
+                      style={style}
+                      isSelected={selectedElement?.field === id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectElement(id);
+                        bringToFront(id);
+                        if (e.detail === 2) {
+                          e.preventDefault();
+                          startEditing(id);
+                          return false;
+                        }
+                      }}
+                      onDragEnd={(id, x, y) => handleElementMove(id, x, y)}
+                      onDuplicate={handleDuplicateElement}
+                      onDelete={handleDeleteElement}
+                      onCopy={handleCopyElement}
+                      onPaste={handlePasteElement}
+                    >
+                      {currentlyEditing?.field === id ? (
+                        <div className="absolute z-50">
+                                                     <textarea
+                            value={text}
+                            onChange={(e) => {
+                              setCustomTextElements(prev => ({
+                                ...prev,
+                                [id]: e.target.value
+                              }));
+                            }}
+                            onBlur={stopEditing}
+                            onKeyDown={handleFieldKeyDown}
+                            className="border border-blue-400 p-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            style={{ minWidth: '200px', width: '100%' }}
+                            autoFocus
+                            rows={3}
+                            placeholder="Enter text here..."
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                            }}
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div 
+                          className="p-1 cursor-text"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectElement(id);
+                            bringToFront(id);
+                            if (e.detail === 2) {
+                              e.preventDefault();
+                              startEditing(id);
+                              return false;
+                            }
+                          }}
+                        >
+                          {text || 'Click to edit'}
+                        </div>
+                      )}
+                    </CanvaElement>
+                  );
+                })}
                 
                 {/* Clear selection when clicking empty space */}
                 <div 
