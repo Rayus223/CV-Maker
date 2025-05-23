@@ -19,7 +19,8 @@ const ProjectSchema = new Schema({
   },
   data: {
     type: Object,
-    required: true
+    required: true,
+    // Make sure there's no size limitation or validation that could be truncating the data
   },
   thumbnail: {
     type: String,
@@ -33,11 +34,37 @@ const ProjectSchema = new Schema({
     type: Date,
     default: Date.now
   }
+}, {
+  // Add these options to ensure large objects can be handled
+  // This enables handling larger documents
+  bufferCommands: false,
+  // Add useNestedStrict to handle nested objects properly
+  strict: false
 });
 
 // Update the 'updatedAt' field on save
 ProjectSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
+  next();
+});
+
+// Add middleware to log the size of data before saving
+ProjectSchema.pre('save', function(next) {
+  try {
+    const dataSize = JSON.stringify(this.data).length;
+    console.log(`Saving project ${this._id} - data size: ${dataSize} bytes`);
+    
+    if (this.data.customTextElements) {
+      console.log(`Project contains ${Object.keys(this.data.customTextElements).length} custom text elements`);
+    }
+    
+    if (this.data.elementStyles) {
+      console.log(`Project contains ${this.data.elementStyles.length} element styles`);
+    }
+  } catch (error) {
+    console.error('Error logging project data size:', error);
+  }
+  
   next();
 });
 

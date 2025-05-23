@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CVData, sampleData, TextStyle, ElementStyle } from '../types/types';
 import { DndProvider, useDrag, useDrop, useDragLayer } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import type { XYCoord, DropTargetMonitor, DragSourceMonitor } from 'react-dnd';
 import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
-import { saveCV, updateCV, getCVById } from '../services/cvService';
+import { saveCV, updateCV, getCVById, type CVProject } from '../services/cvService';
 import { useAuth } from '../context/AuthContext';
 
 interface CanvaEditorProps {
@@ -724,7 +724,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   });
 
   // Add showNotification function
-  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'success', duration: number = 3000) => {
+  const showNotification = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success', duration: number = 3000) => {
     setNotification({
       show: true,
       message,
@@ -735,7 +735,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     setTimeout(() => {
       setNotification(prev => ({ ...prev, show: false }));
     }, duration);
-  };
+  }, []);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -760,26 +760,38 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   // Add saving state to track when a save is in progress
   const [isSaving, setIsSaving] = useState<boolean>(false);
   
-  // CV data state - start with empty data for new CV
-  const [cvData, setCvData] = useState<CVData>(initialData || {
-    firstName: '',
-    lastName: '',
-    pronouns: '',
-    title: '',
-    dob: '',
-    phone: '',
-    email: '',
-    address: '',
-    skills: [],
-    links: [],
-    experience: [],
-    education: [],
-    projects: [],
-    recentProjects: []
-  } as CVData);
-  
-  // State for custom text elements (not part of CV structure)
-  const [customTextElements, setCustomTextElements] = useState<{[key: string]: string}>({});
+  // CV data state - ensure customTextElements and elementStyles are part of it
+  const [cvData, setCvData] = useState<CVData>(() => {
+    const baseData: CVData = {
+      firstName: '',
+      lastName: '',
+      pronouns: '',
+      title: '',
+      dob: '',
+      phone: '',
+      email: '',
+      address: '',
+      skills: [],
+      links: [],
+      experience: [],
+      education: [],
+      projects: [],
+      recentProjects: [],
+      customTextElements: {}, // Always initialized
+      elementStyles: []      // Always initialized
+    };
+    if (initialData) {
+      console.log("Initializing cvData with initialData provided via props");
+      return {
+        ...baseData,
+        ...initialData,
+        customTextElements: initialData.customTextElements || {},
+        elementStyles: initialData.elementStyles || []
+      };
+    }
+    console.log("Initializing cvData with default baseData (no initialData prop)");
+    return baseData;
+  });
   
   // Editing state
   const [currentlyEditing, setCurrentlyEditing] = useState<{
@@ -790,7 +802,6 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   } | null>(null);
   
   // Styles management
-  const [elementStyles, setElementStyles] = useState<ElementStyle[]>([]);
   const [activeStyle, setActiveStyle] = useState<TextStyle>(defaultStyle);
   
   // After the existing states at the top of the component
@@ -822,98 +833,197 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   // Near the beginning of the component, let's add a version tracking state
   const [versionTimestamp, setVersionTimestamp] = useState<string>(new Date().toISOString().split('T')[0]);
 
+  // Helper function to calculate default styles from CVData
+  const calculateDefaultStylesFromCvData = useCallback((currentCvData: CVData, getElementIdFunc: Function, defaultStyleObj: TextStyle): ElementStyle[] => {
+    const initialStyles: ElementStyle[] = [];
+    if (!currentCvData) return initialStyles;
+
+    let yPos = 40;
+    let zIdx = 10;
+
+    const addStyle = (id: string, style: Partial<TextStyle>) => {
+      initialStyles.push({ 
+        id, 
+        style: { 
+          ...defaultStyleObj, 
+          ...style, 
+          position: { 
+            x: style.position?.x ?? 40,
+            y: style.position?.y ?? yPos, 
+            zIndex: style.position?.zIndex ?? zIdx++ 
+          }
+        } 
+      });
+      const fontSize = parseInt(style.fontSize || defaultStyleObj.fontSize);
+      const lineHeight = 1.5; 
+      const padding = 8; 
+      yPos += (fontSize * lineHeight) + padding + 10; 
+    };
+
+    if (currentCvData.firstName || currentCvData.lastName) {
+      addStyle(getElementIdFunc('fullName'), { fontSize: '32px', fontWeight: 'bold', position: { x:40, y:40, zIndex: zIdx++} });
+      yPos = 85; 
+    }
+    if (currentCvData.title) {
+      addStyle(getElementIdFunc('title'), { fontSize: '18px', color: '#4B5563', position: {x:40, y:85, zIndex: zIdx++} });
+      yPos = 120; 
+    }
+    
+    let contactStartY = yPos;
+    if (currentCvData.email) {
+      addStyle(getElementIdFunc('email'), { position: { x: 40, y: contactStartY, zIndex: zIdx }});
+    }
+    if (currentCvData.phone) {
+      addStyle(getElementIdFunc('phone'), { position: { x: 300, y: contactStartY, zIndex: zIdx }});
+    }
+    if (currentCvData.address) {
+      addStyle(getElementIdFunc('address'), { position: { x: 560, y: contactStartY, zIndex: zIdx }});
+    }
+    if (currentCvData.email || currentCvData.phone || currentCvData.address) {
+      yPos = contactStartY + 50; 
+      zIdx++; 
+    }
+
+    if (currentCvData.experience && currentCvData.experience.length > 0) {
+      let sectionStartY = yPos;
+      addStyle(getElementIdFunc('experienceHeader'), { fontSize: '22px', fontWeight: 'bold', position: { x:40, y: sectionStartY, zIndex: zIdx++ } });
+      yPos = sectionStartY + 50; 
+      (currentCvData.experience || []).forEach((exp, index) => {
+        let itemStartY = yPos;
+        if(exp.position) addStyle(getElementIdFunc('position', 'experience', index, 'position'), { fontWeight: 'bold', position: { x:40, y: itemStartY, zIndex: zIdx } });
+        if(exp.company) addStyle(getElementIdFunc('company', 'experience', index, 'company'), { position: { x:40, y: itemStartY + 30, zIndex: zIdx-1 } });
+        if(exp.startDate || exp.endDate) addStyle(getElementIdFunc('dates', 'experience', index, 'dates'), { position: { x: 300, y: itemStartY + 30, zIndex: zIdx-1 } });
+        yPos = itemStartY + 70; 
+        if (exp.tasks && exp.tasks.length > 0) {
+          let taskBlockStartY = yPos;
+          exp.tasks.forEach((task) => {
+            addStyle(getElementIdFunc('task', 'experience', index, `tasks[${exp.tasks.indexOf(task)}]`), { position: { x: 60, y: taskBlockStartY, zIndex: zIdx-2 } });
+            taskBlockStartY += 30;
+          });
+          yPos = taskBlockStartY; 
+        }
+        yPos += 10; 
+        zIdx++;
+      });
+    }
+
+    if (currentCvData.education && currentCvData.education.length > 0) {
+      let sectionStartY = yPos;
+      addStyle(getElementIdFunc('educationHeader'), { fontSize: '22px', fontWeight: 'bold', position: { x:40, y: sectionStartY, zIndex: zIdx++ } });
+      yPos = sectionStartY + 50;
+      (currentCvData.education || []).forEach((edu, index) => {
+        let itemStartY = yPos;
+        if(edu.degree) addStyle(getElementIdFunc('degree', 'education', index, 'degree'), { fontWeight: 'bold', position: { x:40, y: itemStartY, zIndex: zIdx } });
+        if(edu.institution) addStyle(getElementIdFunc('institution', 'education', index, 'institution'), { position: { x:40, y: itemStartY + 30, zIndex: zIdx-1 } });
+        if(edu.startDate || edu.endDate) addStyle(getElementIdFunc('dates', 'education', index, 'dates'), { position: { x: 300, y: itemStartY + 30, zIndex: zIdx-1 } });
+        yPos = itemStartY + 70;
+        zIdx++;
+      });
+    }
+
+    if (currentCvData.skills && currentCvData.skills.length > 0) {
+      let sectionStartY = yPos;
+      addStyle(getElementIdFunc('skillsHeader'), { fontSize: '22px', fontWeight: 'bold', position: { x:40, y: sectionStartY, zIndex: zIdx++ } });
+      yPos = sectionStartY + 50;
+      let skillX = 40;
+      let skillRowStartY = yPos;
+      (currentCvData.skills || []).forEach((skill, index) => {
+        addStyle(getElementIdFunc('skill', 'skills', index), { position: { x: skillX, y: skillRowStartY, zIndex: zIdx } });
+        skillX += 180;
+        if (skillX > 500) {
+          skillX = 40;
+          skillRowStartY += 30;
+        }
+      });
+      yPos = skillRowStartY + 30; 
+    }
+    return initialStyles;
+  }, [defaultStyle]);
+
   // Duplicate the selected element
   const handleDuplicateElement = (id: string) => {
-    // Find the element style
-    const elementIndex = elementStyles.findIndex(style => style.id === id);
+    const currentElementStyles = cvData.elementStyles || [];
+    const elementIndex = currentElementStyles.findIndex(style => style.id === id);
     if (elementIndex === -1) return;
-    
-    const elementStyle = elementStyles[elementIndex];
-    
-    // Create a new unique ID for the duplicate
+
+    const elementStyle = currentElementStyles[elementIndex];
+    // No need to check elementStyle for null/undefined if elementIndex is valid and currentElementStyles is an array
+
     const timestamp = new Date().getTime();
     const newId = `custom-text-${timestamp}`;
-    
-    // Create a duplicate style with slightly offset position
+
     const duplicateStyle: TextStyle = {
       ...elementStyle.style,
       position: {
-        ...elementStyle.style.position!,
+        ...(elementStyle.style.position!),
         x: (elementStyle.style.position?.x || 0) + 20,
         y: (elementStyle.style.position?.y || 0) + 20,
         zIndex: nextZIndex
       }
     };
-    
-    // Add the new element style
-    setElementStyles(prev => [...prev, { id: newId, style: duplicateStyle }]);
-    
-    // If this is a custom text element, duplicate its content too
+
+    setCvData(prev => ({
+      ...prev,
+      elementStyles: [...(prev.elementStyles || []), { id: newId, style: duplicateStyle }]
+    }));
+
     if (id.startsWith('custom-text-')) {
-      setCustomTextElements(prev => ({
+      setCvData(prev => ({
         ...prev,
-        [newId]: prev[id] || ''
+        customTextElements: { ...(prev.customTextElements || {}), [newId]: (prev.customTextElements || {})[id] || '' }
       }));
     }
-    
-    // Increment the z-index for future elements
+
     setNextZIndex(prev => prev + 1);
-    
-    // Select the newly duplicated element
     selectElement(newId);
-    
-    // Show notification
     showNotification('Element duplicated', 'success');
   };
 
   // Delete the selected element
   const handleDeleteElement = (id: string) => {
-    // Remove the element style
-    setElementStyles(prev => prev.filter(style => style.id !== id));
-    
-    // If this is a custom text element, remove it from customTextElements
+    setCvData(prev => ({
+      ...prev,
+      elementStyles: (prev.elementStyles || []).filter(style => style.id !== id)
+    }));
+
     if (id.startsWith('custom-text-')) {
-      setCustomTextElements(prev => {
-        const newElements = { ...prev };
-        delete newElements[id];
-        return newElements;
+      setCvData(prev => {
+        const updatedCustomElements = { ...(prev.customTextElements || {}) };
+        delete updatedCustomElements[id];
+        return {
+          ...prev,
+          customTextElements: updatedCustomElements
+        };
       });
     }
-    
-    // If the deleted element was selected, clear selection
+
     if (selectedElement && getElementId(
-      selectedElement.field, 
-      selectedElement.section, 
-      selectedElement.index, 
+      selectedElement.field,
+      selectedElement.section,
+      selectedElement.index,
       selectedElement.subfield
     ) === id) {
       setSelectedElement(null);
       setActiveElement(null);
     }
-    
-    // Show notification
     showNotification('Element deleted', 'info');
   };
 
   // Copy the selected element
   const handleCopyElement = (id: string) => {
-    // Find the element style
-    const elementIndex = elementStyles.findIndex(style => style.id === id);
+    const currentElementStyles = cvData.elementStyles || [];
+    const elementIndex = currentElementStyles.findIndex(style => style.id === id);
     if (elementIndex === -1) return;
-    
-    const elementStyle = elementStyles[elementIndex];
-    
-    // Get the content if it's a custom text element
-    const content = id.startsWith('custom-text-') ? customTextElements[id] : undefined;
-    
-    // Store the copied element's style and content
+
+    const elementStyle = currentElementStyles[elementIndex];
+    const currentCustomTextElements = cvData.customTextElements || {};
+    const content = id.startsWith('custom-text-') ? currentCustomTextElements[id] : undefined;
+
     setCopiedElement({
       style: { ...elementStyle.style },
       content,
-      type: id.split('-')[0] // Store the type of element for potential use
+      type: id.split('-')[0]
     });
-    
-    // Show notification
     showNotification('Element copied to clipboard', 'success');
   };
 
@@ -923,52 +1033,47 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
       showNotification('Nothing to paste', 'error');
       return;
     }
-    
-    // Create a new unique ID for the pasted element
+
     const timestamp = new Date().getTime();
     const newId = `custom-text-${timestamp}`;
-    
-    // Create a paste style with slightly offset position from the original
+
     const pasteStyle: TextStyle = {
       ...copiedElement.style,
       position: {
-        ...copiedElement.style.position!,
+        ...(copiedElement.style.position!),
         x: (copiedElement.style.position?.x || 0) + 20,
         y: (copiedElement.style.position?.y || 0) + 20,
         zIndex: nextZIndex
       }
     };
-    
-    // Add the new element style
-    setElementStyles(prev => [...prev, { id: newId, style: pasteStyle }]);
-    
-    // If there was content, add it to customTextElements
+
+    setCvData(prev => ({
+      ...prev,
+      elementStyles: [...(prev.elementStyles || []), { id: newId, style: pasteStyle }]
+    }));
+
     if (copiedElement.content !== undefined) {
-      setCustomTextElements(prev => ({
+      setCvData(prev => ({
         ...prev,
-        [newId]: copiedElement.content || ''
+        customTextElements: { ...(prev.customTextElements || {}), [newId]: copiedElement.content || '' }
       }));
     }
-    
-    // Increment the z-index for future elements
+
     setNextZIndex(prev => prev + 1);
-    
-    // Select the newly pasted element
     selectElement(newId);
-    
-    // Show notification
     showNotification('Element pasted', 'success');
   };
 
   // Get element ID
-  const getElementId = (field: string, section?: string, index?: number, subfield?: string): string => {
+  const getElementId = useCallback((field: string, section?: string, index?: number, subfield?: string): string => {
     return `${field}${section ? `-${section}` : ''}${index !== undefined ? `-${index}` : ''}${subfield ? `-${subfield}` : ''}`;
-  };
+  }, []);
   
   // Get style for an element
   const getStyleForElement = (field: string, section?: string, index?: number, subfield?: string): TextStyle => {
     const id = getElementId(field, section, index, subfield);
-    const elementStyle = elementStyles.find(style => style.id === id);
+    const currentElementStyles = cvData.elementStyles || [];
+    const elementStyle = currentElementStyles.find(style => style.id === id);
     return elementStyle ? elementStyle.style : defaultStyle;
   };
   
@@ -995,11 +1100,15 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   
   // Replace the stopEditing function
   const stopEditing = () => {
+    console.log("stopEditing called, hasPendingChanges:", hasPendingChanges, "isAuthenticated:", isAuthenticated, "isSaving:", isSaving);
+    
     // Trigger immediate save if there are pending changes
     if (hasPendingChanges && isAuthenticated && !isSaving) {
-      console.log('Saving changes on stop editing');
+      console.log('Saving changes on stop editing - triggering autosave');
       triggerAutosave();
       setHasPendingChanges(false);
+    } else {
+      console.log('Not saving on stop editing - conditions not met');
     }
     
     setCurrentlyEditing(null);
@@ -1031,14 +1140,15 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     const newStyle = { ...activeStyle, ...styleUpdates };
     setActiveStyle(newStyle);
     
-    setElementStyles(prev => {
-      const elementIndex = prev.findIndex(style => style.id === id);
+    setCvData(prev => {
+      const currentStyles = prev.elementStyles || [];
+      const elementIndex = currentStyles.findIndex(style => style.id === id);
       if (elementIndex >= 0) {
-        const updated = [...prev];
+        const updated = [...currentStyles];
         updated[elementIndex] = { id, style: newStyle };
-        return updated;
+        return { ...prev, elementStyles: updated };
       } else {
-        return [...prev, { id, style: newStyle }];
+        return { ...prev, elementStyles: [...currentStyles, { id, style: newStyle }] };
       }
     });
     
@@ -1154,14 +1264,10 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     if (field.startsWith('custom-text-')) {
       // Update custom text elements
       console.log('Updating custom text element');
-      setCustomTextElements(prev => {
-        const updated = {
-          ...prev,
-          [field]: e.target.value
-        };
-        console.log('Updated customTextElements:', updated);
-        return updated;
-      });
+      setCvData(prev => ({
+        ...prev,
+        customTextElements: { ...prev.customTextElements, [field]: e.target.value }
+      }));
     } else {
       // Handle regular CV structure fields
       console.log('Updating CV data field');
@@ -1310,145 +1416,95 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   
   // Handle field position update
   const handleFieldMove = (id: string, xDelta: number, yDelta: number, styleUpdates?: Partial<TextStyle>) => {
-    setElementStyles(prev => {
-      const elementIndex = prev.findIndex(style => style.id === id);
+    setCvData(prev => {
+      const currentStyles = prev.elementStyles || [];
+      const elementIndex = currentStyles.findIndex(style => style.id === id);
       if (elementIndex >= 0) {
-        const updated = [...prev];
-        const currentStyle = updated[elementIndex].style;
-        const currentPosition = currentStyle.position || { x: 0, y: 0, zIndex: 1 };
-        
-        // Create an updated style with position changes
-        let updatedStyle = { 
-          ...currentStyle, 
+        const updated = [...currentStyles];
+        const currentElementStyle = updated[elementIndex].style;
+        const currentPosition = currentElementStyle.position || { x: 0, y: 0, zIndex: 1 };
+        let updatedElementStyleWithPos = {
+          ...currentElementStyle,
           position: {
             ...currentPosition,
             x: currentPosition.x + xDelta,
             y: currentPosition.y + yDelta
           }
         };
-        
-        // Apply any additional style updates if provided
-        if (styleUpdates) {
-          updatedStyle = {
-            ...updatedStyle,
-            ...styleUpdates
-          };
-        }
-        
-        // Apply the updated style
-        updated[elementIndex] = { 
-          ...updated[elementIndex], 
-          style: updatedStyle 
-        };
-        
-        return updated;
+        if (styleUpdates) updatedElementStyleWithPos = { ...updatedElementStyleWithPos, ...styleUpdates };
+        updated[elementIndex] = { ...updated[elementIndex], style: updatedElementStyleWithPos };
+        return { ...prev, elementStyles: updated };
       }
       return prev;
     });
-    
-    // Automatically select the moved element
     setActiveElement(id);
-    
-    // Mark as having changes that need to be saved
     setHasPendingChanges(true);
-    
-    // Debounce autosave to prevent too many API calls
-    if (changeDebounceTimer) {
-      clearTimeout(changeDebounceTimer);
-    }
-    
-    // Trigger autosave after position change with a delay
+    if (changeDebounceTimer) clearTimeout(changeDebounceTimer);
     const timer = setTimeout(() => {
       if (isAuthenticated && !isSaving && hasPendingChanges) {
         triggerAutosave();
         setHasPendingChanges(false);
       }
-    }, 800); // Slightly longer delay for move operations
-    
+    }, 800);
     setChangeDebounceTimer(timer);
   };
   
   // Handle element position update in absolute positioning
   const handleElementMove = (id: string, xDelta: number, yDelta: number, styleUpdates?: Partial<TextStyle>) => {
-    setElementStyles(prev => {
-      const elementIndex = prev.findIndex(style => style.id === id);
+    setCvData(prev => {
+      const currentStyles = prev.elementStyles || [];
+      const elementIndex = currentStyles.findIndex(style => style.id === id);
       if (elementIndex >= 0) {
-        const updated = [...prev];
-        const currentStyle = updated[elementIndex].style;
-        const currentPosition = currentStyle.position || { x: 0, y: 0, zIndex: 1 };
-        
-        // Create an updated style with position changes
-        let updatedStyle = { 
-          ...currentStyle, 
+        const updated = [...currentStyles];
+        const currentElementStyle = updated[elementIndex].style;
+        const currentPosition = currentElementStyle.position || { x: 0, y: 0, zIndex: 1 };
+        let updatedElementStyleWithPos = {
+          ...currentElementStyle,
           position: {
             ...currentPosition,
             x: currentPosition.x + xDelta,
             y: currentPosition.y + yDelta
           }
         };
-        
-        // Apply any additional style updates if provided
-        if (styleUpdates) {
-          updatedStyle = {
-            ...updatedStyle,
-            ...styleUpdates
-          };
-        }
-        
-        // Apply the updated style
-        updated[elementIndex] = { 
-          ...updated[elementIndex], 
-          style: updatedStyle 
-        };
-        
-        return updated;
+        if (styleUpdates) updatedElementStyleWithPos = { ...updatedElementStyleWithPos, ...styleUpdates };
+        updated[elementIndex] = { ...updated[elementIndex], style: updatedElementStyleWithPos };
+        return { ...prev, elementStyles: updated };
       }
       return prev;
     });
-    
-    // Automatically select the moved element
     setActiveElement(id);
-    
-    // Mark as having changes that need to be saved
     setHasPendingChanges(true);
-    
-    // Debounce autosave to prevent too many API calls
-    if (changeDebounceTimer) {
-      clearTimeout(changeDebounceTimer);
-    }
-    
-    // Trigger autosave after position change with a delay
+    if (changeDebounceTimer) clearTimeout(changeDebounceTimer);
     const timer = setTimeout(() => {
       if (isAuthenticated && !isSaving && hasPendingChanges) {
         triggerAutosave();
         setHasPendingChanges(false);
       }
-    }, 800); // Slightly longer delay for move operations
-    
+    }, 800);
     setChangeDebounceTimer(timer);
   };
 
   // Bring element to front when selected
   const bringToFront = (id: string) => {
-    setElementStyles(prev => {
-      const elementIndex = prev.findIndex(style => style.id === id);
+    setCvData(prev => {
+      const currentStyles = prev.elementStyles || [];
+      const elementIndex = currentStyles.findIndex(style => style.id === id);
       if (elementIndex >= 0) {
-        const updated = [...prev];
-        const currentStyle = updated[elementIndex].style;
-        const currentPosition = currentStyle.position || { x: 0, y: 0, zIndex: 1 };
-        
-        updated[elementIndex] = { 
-          ...updated[elementIndex], 
-          style: { 
-            ...currentStyle, 
+        const updated = [...currentStyles];
+        const currentElementStyle = updated[elementIndex].style;
+        const currentPosition = currentElementStyle.position || { x: 0, y: 0, zIndex: 1 };
+        updated[elementIndex] = {
+          ...updated[elementIndex],
+          style: {
+            ...currentElementStyle,
             position: {
               ...currentPosition,
               zIndex: nextZIndex
             }
-          } 
+          }
         };
-        setNextZIndex(prev => prev + 1);
-        return updated;
+        setNextZIndex(prevZ => prevZ + 1);
+        return { ...prev, elementStyles: updated };
       }
       return prev;
     });
@@ -1673,440 +1729,302 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
 
   // Initialize with proper positioning if not already set
   useEffect(() => {
-    // Only run once when component mounts
-    if (elementStyles.length === 0) {
-      // Don't create elements for empty CV
-      const isEmpty = !cvData.firstName && !cvData.lastName && 
-                     cvData.experience.length === 0 && 
-                     cvData.education.length === 0 && 
-                     cvData.skills.length === 0;
-                     
-      if (isEmpty) {
-        // Just set empty styles for the blank canvas
-        setElementStyles([]);
-        return;
-      }
-      
-      // Create initial positions for common elements
-      const initialStyles = [
-        // Header elements
-        { id: getElementId('fullName'), style: { ...defaultStyle, fontSize: '32px', fontWeight: 'bold', position: { x: 40, y: 40, zIndex: 10 }}},
-        { id: getElementId('title'), style: { ...defaultStyle, fontSize: '18px', color: '#4B5563', position: { x: 40, y: 85, zIndex: 9 }}},
-        
-        // Contact info
-        { id: getElementId('email'), style: { ...defaultStyle, position: { x: 40, y: 140, zIndex: 8 }}},
-        { id: getElementId('phone'), style: { ...defaultStyle, position: { x: 300, y: 140, zIndex: 8 }}},
-        { id: getElementId('address'), style: { ...defaultStyle, position: { x: 560, y: 140, zIndex: 8 }}},
-      ];
-      
-      // Only add sections if there's content
-      if (cvData.experience.length > 0) {
-        // Add experience header
-        initialStyles.push({ 
-          id: getElementId('experienceHeader'), 
-          style: { ...defaultStyle, fontSize: '22px', fontWeight: 'bold', position: { x: 40, y: 200, zIndex: 7 }}
-        });
-        
-        // Experience items
-        let yPos = 250;
-        cvData.experience.forEach((exp, index) => {
-          initialStyles.push({ 
-            id: getElementId('position', 'experience', index, 'position'), 
-            style: { ...defaultStyle, fontWeight: 'bold', position: { x: 40, y: yPos, zIndex: 6 }}
-          });
-          
-          initialStyles.push({ 
-            id: getElementId('company', 'experience', index, 'company'), 
-            style: { ...defaultStyle, position: { x: 40, y: yPos + 30, zIndex: 5 }}
-          });
-          
-          initialStyles.push({ 
-            id: getElementId('dates', 'experience', index, 'dates'), 
-            style: { ...defaultStyle, position: { x: 300, y: yPos + 30, zIndex: 5 }}
-          });
-          
-          // Tasks
-          let taskYPos = yPos + 70;
-          exp.tasks.forEach((task, taskIndex) => {
-            initialStyles.push({ 
-              id: getElementId('task', 'experience', index, `tasks[${taskIndex}]`), 
-              style: { ...defaultStyle, position: { x: 60, y: taskYPos, zIndex: 4 }}
-            });
-            taskYPos += 30;
-          });
-          
-          yPos = taskYPos + 30;
-        });
-      }
-      
-             // Add Education section if there's content
-       if (cvData.education.length > 0) {
-         const eduHeaderY = cvData.experience.length > 0 ? 
-           initialStyles.reduce((maxY, item) => 
-             Math.max(maxY, (item.style.position?.y || 0) + 50), 250) :
-           200;
-             
-        initialStyles.push({ 
-          id: getElementId('educationHeader'), 
-          style: { ...defaultStyle, fontSize: '22px', fontWeight: 'bold', position: { x: 40, y: eduHeaderY, zIndex: 7 }}
-        });
-        
-                  // Education items
-         let eduYPos = eduHeaderY + 50;
-        cvData.education.forEach((edu, index) => {
-          initialStyles.push({ 
-            id: getElementId('degree', 'education', index, 'degree'), 
-            style: { ...defaultStyle, fontWeight: 'bold', position: { x: 40, y: eduYPos, zIndex: 6 }}
-          });
-          
-          initialStyles.push({ 
-            id: getElementId('institution', 'education', index, 'institution'), 
-            style: { ...defaultStyle, position: { x: 40, y: eduYPos + 30, zIndex: 5 }}
-          });
-          
-          initialStyles.push({ 
-            id: getElementId('dates', 'education', index, 'dates'), 
-            style: { ...defaultStyle, position: { x: 300, y: eduYPos + 30, zIndex: 5 }}
-          });
-          
-          eduYPos += 70;
-        });
-      }
-      
-             // Add Skills section if there's content
-       if (cvData.skills.length > 0) {
-         const skillsHeaderY = initialStyles.reduce((maxY, item) => 
-           Math.max(maxY, (item.style.position?.y || 0) + 50), 200);
-           
-        initialStyles.push({ 
-          id: getElementId('skillsHeader'), 
-          style: { ...defaultStyle, fontSize: '22px', fontWeight: 'bold', position: { x: 40, y: skillsHeaderY, zIndex: 7 }}
-        });
-        
-        // Skills
-         let skillYPos = skillsHeaderY + 50;
-        let skillX = 40;
-        cvData.skills.forEach((skill, index) => {
-          initialStyles.push({ 
-            id: getElementId('skill', 'skills', index), 
-            style: { ...defaultStyle, position: { x: skillX, y: skillYPos, zIndex: 6 }}
-          });
-          
-          skillX += 180;
-          if (skillX > 500) {
-            skillX = 40;
-            skillYPos += 30;
-          }
-        });
-      }
-      
-      setElementStyles(initialStyles);
-    }
-  }, []);
+    const currentElementStyles = cvData.elementStyles || [];
+    // Use getElementId from useCallback context
+    const resolvedGetElementId = getElementId;
 
-  // Check query params for project ID or template ID
+    console.log("Initial styling useEffect triggered. projectId:", projectId, "isLoading:", isLoading, "elementStyles.length:", currentElementStyles.length);
+
+    if (!isLoading && currentElementStyles.length === 0 &&
+        (cvData.firstName || cvData.lastName || (cvData.experience && cvData.experience.length > 0) || (cvData.education && cvData.education.length > 0) || (cvData.skills && cvData.skills.length > 0))) {
+
+      console.log("Applying default styles based on cvData because no elementStyles were loaded.");
+      const initialStyles = calculateDefaultStylesFromCvData(cvData, resolvedGetElementId, defaultStyle);
+      setCvData(prev => ({ ...prev, elementStyles: initialStyles }));
+
+      if (initialStyles.length > 0) {
+        const highestZIndex = initialStyles.reduce((highest, style) => {
+          const zIndex = style.style.position?.zIndex || 0;
+          return Math.max(highest, zIndex);
+        }, 0);
+        setNextZIndex(highestZIndex + 1);
+        console.log("Set nextZIndex to:", highestZIndex + 1, "based on default styles.");
+      }
+    } else if (!isLoading && currentElementStyles.length > 0) {
+      console.log("Skipping default styling, elementStyles already loaded or initialized:", currentElementStyles.length);
+    } else if (!isLoading && (cvData.elementStyles || []).length === 0) {
+      console.log("Skipping default styling, cvData is empty and no elementStyles loaded.");
+    }
+  }, [isLoading, cvData, projectId, calculateDefaultStylesFromCvData, getElementId, defaultStyle]); // Added calculateDefaultStylesFromCvData, getElementId, defaultStyle
+
+  // Load project useEffect
   useEffect(() => {
     const loadProject = async () => {
-      try {
-        setIsLoading(true);
-        const params = new URLSearchParams(location.search);
-        const projectParam = params.get('project');
-        
-        // If project ID is provided, load the project
-        if (projectParam) {
-          try {
-            console.log("Attempting to load project with ID:", projectParam);
-            // Skip loading for generated IDs
-            if (projectParam.startsWith('generated-')) {
-              console.log("This is a generated ID, not loading from backend");
-              showNotification('Creating new CV from scratch', 'info');
-              return;
-            }
-            
-            const project = await getCVById(projectParam);
-            
-            // Set CV data
-            setCvData(project.data);
-            
-            // Also load the customTextElements if they're in the data
-            if (project.data.customTextElements) {
-              console.log('Found customTextElements in project data, loading them');
-              setCustomTextElements(project.data.customTextElements);
-            }
+      const params = new URLSearchParams(location.search);
+      const projectParam = params.get('project');
+      const templateId = params.get('template');
 
-            // Load saved element styles if they exist
-            if (project.data.elementStyles) {
-              console.log('Found elementStyles in project data, loading them');
-              setElementStyles(project.data.elementStyles);
-              
-              // Find the highest z-index to update nextZIndex
-              const highestZIndex = project.data.elementStyles.reduce((highest, style) => {
-                const zIndex = style.style.position?.zIndex || 0;
-                return Math.max(highest, zIndex);
-              }, 0);
-              
-              setNextZIndex(highestZIndex + 1);
-            }
-            
-            setDocumentTitle(project.name);
-            setProjectId(project.id);
-            showNotification('Project loaded successfully', 'success');
-          } catch (error) {
-            console.error('Failed to load project:', error);
-            showNotification('Failed to load project. Creating a new one.', 'error');
-            // Continue with a blank CV if loading fails
-            setProjectId(null);
+      console.log("loadProject called. projectParam:", projectParam, "templateId:", templateId, "isAuthenticated:", isAuthenticated);
+
+      if (isAuthenticated && projectParam && projectParam !== 'null' && projectParam !== 'undefined' && !projectParam.startsWith('generated-')) {
+        setIsLoading(true);
+        console.log("Attempting to load project with ID:", projectParam);
+        try {
+          const project = await getCVById(projectParam); // getCVById is stable from import
+          console.log("Project loaded from backend:", project);
+          
+          const projectData = project.data || {}; 
+
+          setCvData(prev => ({
+            ...prev, 
+            ...(projectData as CVData), 
+            customTextElements: projectData.customTextElements || {},
+            elementStyles: (projectData.elementStyles && projectData.elementStyles.length > 0) ? projectData.elementStyles : []
+          }));
+          
+          const loadedElementStyles = projectData.elementStyles || [];
+          if (loadedElementStyles.length > 0) {
+            console.log('Found elementStyles in project data, loading them:', loadedElementStyles.length);
+            const highestZIndex = loadedElementStyles.reduce((highest, style) => Math.max(highest, style.style.position?.zIndex || 0), 0);
+            setNextZIndex(highestZIndex + 1);
+            console.log("Set nextZIndex to:", highestZIndex + 1, "from loaded styles.");
+          } else {
+            console.log("No elementStyles in loaded project or it's empty. Will use defaults if cvData has content.");
           }
+          
+          setDocumentTitle(project.name || 'Untitled CV');
+          setProjectId(project.id);
+          setLastSaved(new Date(project.updatedAt));
+          showNotification('Project loaded successfully', 'success'); // showNotification from useCallback
+        } catch (error) {
+          console.error('Failed to load project:', error);
+          showNotification('Failed to load project. Starting a new one.', 'error');
+          setProjectId(null);
+          setCvData({
+             ...sampleData, // sampleData from import
+             customTextElements: {}, 
+             elementStyles: [] 
+          });
+          setDocumentTitle('Untitled New CV');
+        } finally {
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error('Error loading project:', error);
-      } finally {
+      } else if (templateId) {
+        // ... (template loading logic, ensure sampleData is stable or add to deps)
+        setIsLoading(true);
+        setCvData({ ...sampleData, customTextElements: {}, elementStyles: [] });
+        setDocumentTitle(`CV from Template ${templateId}`);
+        setProjectId(null);
+        setIsLoading(false);
+        showNotification(`Started new CV from template ${templateId}`, 'info');
+      } else if (!projectParam || projectParam.startsWith('generated-') || projectParam === 'null' || projectParam === 'undefined') {
+        // ... (new/blank canvas logic)
+        const currentElementStyles = cvData.elementStyles || [];
+        const currentCustomTextElements = cvData.customTextElements || {};
+        if (currentElementStyles.length === 0 && Object.keys(currentCustomTextElements).length === 0 && !cvData.firstName) {
+           console.log("Starting with a completely blank canvas as no data or styles found.");
+           setCvData({ firstName: '', lastName: '', pronouns: '', title: '', dob: '', phone: '', email: '', address: '', skills: [], links: [], experience: [], education: [], projects: [], recentProjects: [], customTextElements: {}, elementStyles: [] });
+        }
+        setDocumentTitle(documentTitle || 'Untitled Design');
+        setProjectId(null);
         setIsLoading(false);
       }
     };
     
-    if (isAuthenticated) {
+    if (isAuthenticated !== null) {
       loadProject();
     }
-  }, [location.search, isAuthenticated]);
-  
-  // Set up auto-save functionality
+  }, [location.search, isAuthenticated, showNotification, navigate, sampleData]); // Removed getCVById as it's stable; Added sampleData if used in template logic
+
+  // Define triggerAutosave with useCallback BEFORE the autoSave useEffect
+  const triggerAutosave = useCallback(async () => {
+    console.log("triggerAutosave called - conditions:", {
+      isAuthenticated,
+      isSaving,
+      isLoading,
+      customTextElementsCount: Object.keys(cvData.customTextElements || {}).length,
+      elementStylesCount: (cvData.elementStyles || []).length,
+      projectId,
+      hasPendingChanges
+    });
+
+    if (!isAuthenticated || isSaving || isLoading || !hasPendingChanges) {
+      if (!isSaving && hasPendingChanges) {
+        // Pending changes remain if not saving
+      } else if (isSaving && hasPendingChanges) {
+        // Save is in progress, it will handle pending changes
+      } else {
+        // No pending changes, or conditions not met to save, so clear the flag
+        setHasPendingChanges(false); 
+      }
+      return;
+    }
+
+    try {
+      console.log("Starting autosave process");
+      setIsSaving(true);
+      
+      const storageName = documentTitle || 'Untitled CV';
+      // Ensure completeData has fallbacks for elements that might be undefined on cvData in theory
+      const completeData: CVData = {
+        ...cvData,
+        customTextElements: cvData.customTextElements || {},
+        elementStyles: cvData.elementStyles || []
+      };
+      
+      // Fix the TypeScript error by creating local variables with null checks
+      const textElementsForLog = completeData.customTextElements || {};
+      const stylesForLog = completeData.elementStyles || [];
+      
+      console.log('Data prepared for autosave:', { 
+        customTextElementsCount: Object.keys(textElementsForLog).length,
+        elementStylesCount: stylesForLog.length
+      });
+
+      let savedOrUpdatedProject: CVProject;
+
+      if (projectId && projectId !== 'null' && projectId !== 'undefined' && !projectId.startsWith('generated-')) {
+        console.log(`Autosave: Attempting to UPDATE existing project with ID: ${projectId}`);
+        try {
+          savedOrUpdatedProject = await updateCV(projectId, completeData, storageName);
+          console.log("Project updated successfully via autosave:", savedOrUpdatedProject.id);
+        } catch (updateError: any) {
+          console.error("Autosave: Error updating project, attempting to save as new instead.", updateError);
+          showNotification(`Autosave update failed (${updateError.message || 'Unknown error'}), trying as new.`, 'error', 4000);
+          const newProject = await saveCV(completeData, storageName);
+          setProjectId(newProject.id);
+          savedOrUpdatedProject = newProject;
+          console.log("Autosave: Project saved as NEW after update failed, new ID:", newProject.id);
+          const url = new URL(window.location.href);
+          url.searchParams.set('project', newProject.id);
+          window.history.replaceState({}, '', url.toString());
+        }
+      } else {
+        console.log("Autosave: Attempting to SAVE as NEW project (no valid projectId in state or it's a placeholder).");
+        savedOrUpdatedProject = await saveCV(completeData, storageName);
+        setProjectId(savedOrUpdatedProject.id);
+        console.log("Autosave: Project saved as NEW successfully, new ID:", savedOrUpdatedProject.id);
+        const url = new URL(window.location.href);
+        url.searchParams.set('project', savedOrUpdatedProject.id);
+        window.history.replaceState({}, '', url.toString());
+      }
+      
+      setLastSaved(new Date());
+      setHasPendingChanges(false);
+      showNotification('Auto-saved', 'success', 1500);
+      localStorage.setItem('last_edited_project_id', savedOrUpdatedProject.id);
+
+    } catch (error: any) {
+      console.error('Autosave failed comprehensively:', error);
+      // Don't clear hasPendingChanges here, as the save failed.
+      if (String(error.message || error).includes('Authentication required')) {
+        showNotification('Please login to save your CV', 'error', 3000);
+        // Consider navigating to login: navigate('/login?redirect=canva-editor');
+      } else {
+        showNotification(`Autosave error: ${error.message || 'Could not save project.'}`, 'error', 4000);
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isAuthenticated, isSaving, isLoading, cvData, projectId, documentTitle, hasPendingChanges, showNotification, navigate]); // Removed saveCV, updateCV as they are imported and stable
+
+  // Auto-save interval useEffect (depends on triggerAutosave defined above)
   useEffect(() => {
     let autoSaveTimer: NodeJS.Timeout | null = null;
-    
     const autoSave = async () => {
+      console.log("Auto-save check - hasPendingChanges:", hasPendingChanges);
       if (hasPendingChanges) {
+        console.log("Auto-save triggered - saving pending changes");
         await triggerAutosave();
-        setHasPendingChanges(false);
       }
     };
-    
-    // Set up auto-save interval
     if (isAuthenticated && !isLoading) {
+      console.log(`Setting up auto-save interval every ${autoSaveInterval}ms`);
       autoSaveTimer = setInterval(autoSave, autoSaveInterval);
-      console.log('Auto-save interval set up');
+    } else {
+      console.log("Not setting up auto-save - isAuthenticated:", isAuthenticated, "isLoading:", isLoading);
     }
-    
-    // Clean up on unmount
     return () => {
       if (autoSaveTimer) {
+        console.log("Clearing auto-save timer");
         clearInterval(autoSaveTimer);
       }
     };
-  }, [isAuthenticated, cvData, customTextElements, projectId, documentTitle, isLoading, autoSaveInterval, isSaving, hasPendingChanges]);
-  
-  // Manual save function
+  }, [isAuthenticated, isLoading, autoSaveInterval, hasPendingChanges, triggerAutosave]);
+
   const handleManualSave = async () => {
     if (!isAuthenticated) {
       showNotification('Please login to save your CV', 'error');
-      // Redirect to login page
       navigate('/login?redirect=canva-editor');
       return;
     }
-    
     if (isSaving) {
       showNotification('Save already in progress', 'info');
       return;
     }
-    
+
+    console.log("handleManualSave initiated. Current projectId from state:", projectId);
+    setIsSaving(true);
+    showNotification('Saving your CV...', 'info');
+
     try {
-      setIsSaving(true);
-      showNotification('Saving your CV...', 'info');
-      
-      // Check for existing projectId in different places (state, URL, localStorage)
-      let currentProjectId = projectId;
-      
-      // If we don't have a projectId in state, check the URL
-      if (!currentProjectId) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlProjectId = urlParams.get('project');
-        
-        // Don't use generated IDs or empty/undefined values
-        if (urlProjectId && !urlProjectId.startsWith('generated-') && urlProjectId !== 'undefined') {
-          currentProjectId = urlProjectId;
-        }
-      }
-      
-      // If we still don't have a projectId, check localStorage
-      if (!currentProjectId) {
-        const savedProjectId = localStorage.getItem('last_edited_project_id');
-        if (savedProjectId && !savedProjectId.startsWith('generated-') && savedProjectId !== 'undefined') {
-          currentProjectId = savedProjectId;
-        }
-      }
-      
-      // Create a storage name that includes a version timestamp
-      const storageName = `${documentTitle}`;
-      
-      // Create a complete CV data object that includes custom text elements and element styles
-      const completeData = {
+      const storageName = documentTitle || 'Untitled CV';
+      const completeData: CVData = {
         ...cvData,
-        // Add customTextElements to the data for saving
-        customTextElements: customTextElements,
-        // Add elementStyles to the data for saving
-        elementStyles: elementStyles
+        customTextElements: cvData.customTextElements || {},
+        elementStyles: cvData.elementStyles || []
       };
+
+      // Fix the TypeScript error by creating local variables with null checks
+      const textElementsForLog = completeData.customTextElements || {};
+      const stylesForLog = completeData.elementStyles || [];
       
-      console.log('Saving CV data with custom text elements:', Object.keys(customTextElements).length);
-      console.log('Saving CV data with element styles:', elementStyles.length);
-      
-      // IMPORTANT: Only attempt to update if we have a valid project ID
-      if (currentProjectId && currentProjectId !== 'undefined' && currentProjectId !== 'null') {
+      console.log('Data prepared for manual save:', {
+        customTextElementsCount: Object.keys(textElementsForLog).length,
+        elementStylesCount: stylesForLog.length
+      });
+
+      let savedOrUpdatedProject: CVProject;
+
+      if (projectId && projectId !== 'null' && projectId !== 'undefined' && !projectId.startsWith('generated-')) {
+        console.log(`Attempting to UPDATE existing project with ID: ${projectId}`);
         try {
-          // Update existing project with complete data
-          await updateCV(currentProjectId, completeData, storageName);
-          
-          // Make sure projectId is set in state in case we found it from URL or localStorage
-          if (projectId !== currentProjectId) {
-            setProjectId(currentProjectId);
-          }
-        } catch (updateError) {
-          console.error("Error updating project, will create new:", updateError);
-          // If update fails, fall back to creating a new project
+          savedOrUpdatedProject = await updateCV(projectId, completeData, storageName);
+          console.log("Project updated successfully via manual save:", savedOrUpdatedProject.id);
+        } catch (updateError: any) {
+          console.error("Manual save: Error updating project, attempting to save as new instead.", updateError);
+          showNotification(`Update failed (${updateError.message || 'Unknown error'}), trying to save as a new CV.`, 'error', 5000);
           const newProject = await saveCV(completeData, storageName);
-          const newProjectId = newProject.id;
-          setProjectId(newProjectId);
-          
-          // Store in localStorage for persistence between sessions
-          localStorage.setItem('last_edited_project_id', newProjectId);
-          
-          // Update URL with the new project ID without page refresh
+          setProjectId(newProject.id);
+          savedOrUpdatedProject = newProject;
+          console.log("Project saved as NEW after update failed, new ID:", newProject.id);
           const url = new URL(window.location.href);
-          url.searchParams.set('project', newProjectId);
+          url.searchParams.set('project', newProject.id);
           window.history.replaceState({}, '', url.toString());
         }
       } else {
-        console.log("Creating new project (no valid ID found)");
-        // Save new project only if we truly don't have an ID
-        const newProject = await saveCV(completeData, storageName);
-        const newProjectId = newProject.id;
-        setProjectId(newProjectId);
-        
-        // Store in localStorage for persistence between sessions
-        localStorage.setItem('last_edited_project_id', newProjectId);
-        
-        // Update URL with the new project ID without page refresh
+        console.log("Attempting to SAVE as NEW project (no valid projectId in state or it's a placeholder).");
+        savedOrUpdatedProject = await saveCV(completeData, storageName);
+        setProjectId(savedOrUpdatedProject.id);
+        console.log("Project saved as NEW successfully, new ID:", savedOrUpdatedProject.id);
         const url = new URL(window.location.href);
-        url.searchParams.set('project', newProjectId);
+        url.searchParams.set('project', savedOrUpdatedProject.id);
         window.history.replaceState({}, '', url.toString());
-        
-        console.log("Created new project with ID:", newProjectId);
       }
-      
+
       setLastSaved(new Date());
-      showNotification('CV saved successfully', 'success');
-    } catch (error) {
-      console.error('Save failed:', error);
-      showNotification('Failed to save CV', 'error');
+      setHasPendingChanges(false);
+      showNotification('CV saved successfully!', 'success');
+      localStorage.setItem('last_edited_project_id', savedOrUpdatedProject.id);
+
+    } catch (error: any) {
+      console.error('Manual save failed comprehensively:', error);
+      showNotification(`Save failed: ${error.message || 'Could not save project.'}`, 'error', 5000);
     } finally {
       setIsSaving(false);
     }
   };
-  
-  // Modify the triggerAutosave function to include customTextElements
-  const triggerAutosave = async () => {
-    if (!isAuthenticated || isSaving || isLoading) return;
-    
-    try {
-      setIsSaving(true);
-      
-      // Check for existing projectId in different places (state, URL, localStorage)
-      let currentProjectId = projectId;
-      
-      // If we don't have a projectId in state, check the URL
-      if (!currentProjectId) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlProjectId = urlParams.get('project');
-        
-        // Don't use generated IDs or empty/undefined values
-        if (urlProjectId && !urlProjectId.startsWith('generated-') && urlProjectId !== 'undefined') {
-          currentProjectId = urlProjectId;
-        }
-      }
-      
-      // If we still don't have a projectId, check localStorage
-      if (!currentProjectId) {
-        const savedProjectId = localStorage.getItem('last_edited_project_id');
-        if (savedProjectId && !savedProjectId.startsWith('generated-') && savedProjectId !== 'undefined') {
-          currentProjectId = savedProjectId;
-        }
-      }
-      
-      // Create a storage name that includes a version timestamp
-      const storageName = `${documentTitle}`;
-      
-      // Create a complete CV data object that includes custom text elements and element styles
-      const completeData = {
-        ...cvData,
-        // Add customTextElements to the data for saving
-        customTextElements: customTextElements,
-        // Add elementStyles to the data for saving
-        elementStyles: elementStyles
-      };
-      
-      console.log('Saving CV data with custom text elements:', Object.keys(customTextElements).length);
-      console.log('Saving CV data with element styles:', elementStyles.length);
-      
-      // IMPORTANT: Only attempt to update if we have a valid project ID
-      if (currentProjectId && currentProjectId !== 'undefined' && currentProjectId !== 'null') {
-        console.log("Updating existing project:", currentProjectId);
-        try {
-          // Update existing project with complete data
-          const updatedProject = await updateCV(currentProjectId, completeData, storageName);
-          console.log("Project updated successfully:", updatedProject);
-          
-          // Make sure projectId is set in state in case we found it from URL or localStorage
-          if (projectId !== currentProjectId) {
-            setProjectId(currentProjectId);
-          }
-        } catch (updateError) {
-          console.error("Error updating project, will create new:", updateError);
-          // If update fails, fall back to creating a new project
-          const newProject = await saveCV(completeData, storageName);
-          const newProjectId = newProject.id;
-          setProjectId(newProjectId);
-          
-          // Store in localStorage for persistence between sessions
-          localStorage.setItem('last_edited_project_id', newProjectId);
-          
-          // Update URL with the new project ID without page refresh
-          const url = new URL(window.location.href);
-          url.searchParams.set('project', newProjectId);
-          window.history.replaceState({}, '', url.toString());
-        }
-      } else {
-        console.log("Creating new project (no valid ID found)");
-        // Save new project only if we truly don't have an ID
-        const newProject = await saveCV(completeData, storageName);
-        const newProjectId = newProject.id;
-        setProjectId(newProjectId);
-        
-        // Store in localStorage for persistence between sessions
-        localStorage.setItem('last_edited_project_id', newProjectId);
-        
-        // Update URL with the new project ID without page refresh
-        const url = new URL(window.location.href);
-        url.searchParams.set('project', newProjectId);
-        window.history.replaceState({}, '', url.toString());
-        
-        console.log("Created new project with ID:", newProjectId);
-      }
-      
-      setLastSaved(new Date());
-      // Brief success notification that auto-fades
-      showNotification('Auto-saved', 'success', 1500);
-    } catch (error) {
-      console.error('Auto-save failed:', error);
-      if (String(error).includes('Authentication required')) {
-        showNotification('Please login to save your CV', 'error', 3000);
-      } else {
-        showNotification('Auto-save failed', 'error');
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-  
+
   // Add a new useEffect to clean up the change debounce timer
   // Place it after other useEffects but before the return statement
   useEffect(() => {
@@ -2117,6 +2035,24 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
       }
     };
   }, [changeDebounceTimer]);
+  
+  // Handle field change for custom text elements to save immediately upon changes
+  const handleCustomTextChange = (id: string, value: string) => {
+    console.log(`Editing text for element ${id}, new value:`, value);
+    setCvData(prev => ({
+      ...prev,
+      customTextElements: { ...(prev.customTextElements || {}), [id]: value }
+    }));
+    setHasPendingChanges(true);
+    if (changeDebounceTimer) clearTimeout(changeDebounceTimer);
+    const timer = setTimeout(() => {
+      if (isAuthenticated && !isSaving && hasPendingChanges) {
+        console.log('Text changed - debounced autosave triggering');
+        triggerAutosave();
+      }
+    }, 1000);
+    setChangeDebounceTimer(timer);
+  };
   
   return (
     <DndProvider backend={HTML5Backend}>
@@ -2312,15 +2248,25 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
                         } 
                       };
                       
-                      // Add to element styles
-                      setElementStyles(prev => [...prev, { id, style: newStyle }]);
+                      console.log("Adding new custom text element with ID:", id);
+                      console.log("New element style:", newStyle);
+                      
+                      setCvData(prev => ({
+                        ...prev,
+                        elementStyles: [...(prev.elementStyles || []), { id, style: newStyle }],
+                        customTextElements: { ...(prev.customTextElements || {}), [id]: "" }
+                      }));
+                      
                       setNextZIndex(prev => prev + 1);
                       
                       // Add custom text element to custom elements state
-                      setCustomTextElements(prev => ({
-                        ...prev, 
-                        [id]: ""  // Start with empty string
+                      setCvData(prev => ({
+                        ...prev,
+                        customTextElements: { ...prev.customTextElements, [id]: "" }
                       }));
+                      
+                      // Flag that we have changes that need to be saved
+                      setHasPendingChanges(true);
                       
                       // Select the new element
                       selectElement(id);
@@ -2399,9 +2345,9 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
             >
               {/* Empty state prompt when canvas is completely empty (no CV data and no custom text elements) */}
               {!cvData.firstName && !cvData.lastName && 
-               cvData.experience.length === 0 && 
-               cvData.education.length === 0 && 
-               Object.keys(customTextElements).length === 0 && (
+               (!cvData.experience || cvData.experience.length === 0) && 
+               (!cvData.education || cvData.education.length === 0) && 
+               Object.keys(cvData.customTextElements || {}).length === 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -2647,7 +2593,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
                 )}
                 
                 {/* Render custom text elements */}
-                {Object.entries(customTextElements).map(([id, text]) => {
+                {Object.entries(cvData.customTextElements || {}).map(([id, text]) => {
                   // Directly render custom text elements
                   const style = getStyleForElement(id);
                   
@@ -2675,15 +2621,13 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
                     >
                       {currentlyEditing?.field === id ? (
                         <div className="absolute z-50">
-                                                     <textarea
+                          <textarea
                             value={text}
-                            onChange={(e) => {
-                              setCustomTextElements(prev => ({
-                                ...prev,
-                                [id]: e.target.value
-                              }));
+                            onChange={(e) => handleCustomTextChange(id, e.target.value)}
+                            onBlur={() => {
+                              console.log(`Finished editing text for element ${id}, final value:`, text);
+                              stopEditing();
                             }}
-                            onBlur={stopEditing}
                             onKeyDown={handleFieldKeyDown}
                             className="border border-blue-400 p-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             style={{ minWidth: '200px', width: '100%' }}

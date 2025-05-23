@@ -1,6 +1,6 @@
 import { CVData } from '../types/types';
 
-interface CVProject {
+export interface CVProject {
   id: string;
   name: string;
   description?: string;
@@ -35,6 +35,24 @@ export const saveCV = async (
       throw new Error('Authentication required to save CV. Please log in.');
     }
 
+    // Log size of data being saved
+    const requestData = {
+      name,
+      description,
+      data: cvData,
+      thumbnail
+    };
+    const dataSize = JSON.stringify(requestData).length;
+    console.log(`Saving new CV "${name}" - data size: ${dataSize} bytes`);
+    
+    if (cvData.customTextElements) {
+      console.log(`CV contains ${Object.keys(cvData.customTextElements).length} custom text elements`);
+    }
+    
+    if (cvData.elementStyles) {
+      console.log(`CV contains ${cvData.elementStyles.length} element styles`);
+    }
+
     const response = await fetch(`${API_URL}/projects`, {
       method: 'POST',
       headers: {
@@ -43,19 +61,17 @@ export const saveCV = async (
         'x-auth-token': token
       },
       credentials: 'include',
-      body: JSON.stringify({
-        name,
-        description,
-        data: cvData,
-        thumbnail
-      })
+      body: JSON.stringify(requestData)
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to save CV: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`Failed to save CV: Status ${response.status}, Response:`, errorText);
+      throw new Error(`Failed to save CV: ${response.statusText} - ${errorText}`);
     }
 
     const savedProject = await response.json();
+    console.log("New CV saved successfully, ID:", savedProject.id);
     return savedProject;
   } catch (error) {
     console.error('Error saving CV:', error);
@@ -89,6 +105,18 @@ export const updateCV = async (
     if (description !== undefined) updateData.description = description;
     if (thumbnail) updateData.thumbnail = thumbnail;
 
+    // Log size of data being saved
+    const dataSize = JSON.stringify(updateData).length;
+    console.log(`Updating CV ${id} - data size: ${dataSize} bytes`);
+    
+    if (cvData.customTextElements) {
+      console.log(`CV contains ${Object.keys(cvData.customTextElements).length} custom text elements`);
+    }
+    
+    if (cvData.elementStyles) {
+      console.log(`CV contains ${cvData.elementStyles.length} element styles`);
+    }
+
     const response = await fetch(`${API_URL}/projects/${id}`, {
       method: 'PUT',
       headers: {
@@ -101,10 +129,13 @@ export const updateCV = async (
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to update CV: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`Failed to update CV: Status ${response.status}, Response:`, errorText);
+      throw new Error(`Failed to update CV: ${response.statusText} - ${errorText}`);
     }
 
     const updatedProject = await response.json();
+    console.log("CV updated successfully:", id);
     return updatedProject;
   } catch (error) {
     console.error('Error updating CV:', error);
@@ -186,6 +217,7 @@ export const getUserCVs = async (): Promise<CVProject[]> => {
  */
 export const getCVById = async (id: string): Promise<CVProject> => {
   try {
+    console.log(`Fetching CV with ID: ${id}`);
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Authentication required to get CV. Please log in.');
@@ -201,10 +233,29 @@ export const getCVById = async (id: string): Promise<CVProject> => {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch CV: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`Failed to fetch CV: Status ${response.status}, Response:`, errorText);
+      throw new Error(`Failed to fetch CV: ${response.statusText} - ${errorText}`);
     }
 
     const project = await response.json();
+    
+    // Log what we're getting back
+    console.log(`CV "${project.name}" fetched successfully`);
+    console.log(`Data contains ${Object.keys(project.data).length} keys`);
+    
+    if (project.data.customTextElements) {
+      console.log(`CV contains ${Object.keys(project.data.customTextElements).length} custom text elements`);
+    } else {
+      console.log(`CV contains NO custom text elements`);
+    }
+    
+    if (project.data.elementStyles) {
+      console.log(`CV contains ${project.data.elementStyles.length} element styles`);
+    } else {
+      console.log(`CV contains NO element styles`);
+    }
+    
     return project;
   } catch (error) {
     console.error('Error fetching CV:', error);

@@ -88,6 +88,22 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const { name, description, data, thumbnail } = req.body;
     
+    console.log(`Updating project ${req.params.id}`);
+    
+    // Log size of the data being saved
+    if (data) {
+      const dataSize = JSON.stringify(data).length;
+      console.log(`Project data size: ${dataSize} bytes`);
+      
+      if (data.customTextElements) {
+        console.log(`Project contains ${Object.keys(data.customTextElements).length} custom text elements`);
+      }
+      
+      if (data.elementStyles) {
+        console.log(`Project contains ${data.elementStyles.length} element styles`);
+      }
+    }
+    
     // Find the project
     let project = await Project.findById(req.params.id);
     
@@ -109,22 +125,36 @@ router.put('/:id', auth, async (req, res) => {
     if (thumbnail) projectFields.thumbnail = thumbnail;
     
     // Update the project
-    project = await Project.findByIdAndUpdate(
-      req.params.id,
-      { $set: projectFields },
-      { new: true }
-    );
-    
-    res.json(project);
+    try {
+      project = await Project.findByIdAndUpdate(
+        req.params.id,
+        { $set: projectFields },
+        { new: true }
+      );
+      
+      console.log(`Project ${req.params.id} updated successfully`);
+      res.json(project);
+    } catch (updateError) {
+      console.error('Error updating project:', updateError);
+      return res.status(500).json({ 
+        msg: 'Error updating project', 
+        error: updateError.message, 
+        stack: updateError.stack
+      });
+    }
   } catch (err) {
-    console.error(err.message);
+    console.error('Error in update route:', err);
     
     // Check if ID format is valid
     if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'Project not found' });
+      return res.status(404).json({ msg: 'Project not found - invalid ID format' });
     }
     
-    res.status(500).send('Server Error');
+    res.status(500).json({
+      msg: 'Server Error in update route',
+      error: err.message,
+      stack: err.stack
+    });
   }
 });
 
