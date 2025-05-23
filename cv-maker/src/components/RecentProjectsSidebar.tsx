@@ -48,17 +48,6 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({
     </div>
   );
 
-  const renderCreateCVButton = () => (
-    <div className="p-4 bg-gray-50 text-center border-t border-gray-200">
-      <button 
-        className="px-4 py-2 bg-brand-primary text-white rounded-md hover:bg-brand-dark transition"
-        onClick={createCV || (() => window.location.href = '/cv-editor')}
-      >
-        Create New CV
-      </button>
-    </div>
-  );
-
   if (isLoading) {
     return (
       <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -69,7 +58,6 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({
           </div>
           <p className="mt-4 text-gray-500">Loading your projects...</p>
         </div>
-        {renderCreateCVButton()}
       </div>
     );
   }
@@ -87,7 +75,6 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({
           <h4 className="font-medium text-gray-800 mb-2">Your beautiful projects will land here</h4>
           <p className="text-gray-500 text-sm mb-4">Create your first CV to get started on your professional journey</p>
         </div>
-        {renderCreateCVButton()}
       </div>
     );
   }
@@ -170,8 +157,6 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({
           </div>
         ))}
       </div>
-
-      {renderCreateCVButton()}
     </aside>
   );
 };
