@@ -1770,17 +1770,31 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         setIsLoading(true);
         console.log("Attempting to load project with ID:", projectParam);
         try {
-          const project = await getCVById(projectParam); // getCVById is stable from import
+          const project = await getCVById(projectParam);
           console.log("Project loaded from backend:", project);
           
           const projectData = project.data || {}; 
 
-          setCvData(prev => ({
-            ...prev, 
-            ...(projectData as CVData), 
+          // Ensure all required properties exist in the loaded data
+          console.log("Processing project data before setting state:", {
+            hasCustomTextElements: !!projectData.customTextElements,
+            textElementsCount: projectData.customTextElements ? Object.keys(projectData.customTextElements).length : 0,
+            hasElementStyles: !!projectData.elementStyles,
+            stylesCount: projectData.elementStyles ? projectData.elementStyles.length : 0
+          });
+
+          const mergedData = {
+            ...projectData as CVData, 
             customTextElements: projectData.customTextElements || {},
-            elementStyles: (projectData.elementStyles && projectData.elementStyles.length > 0) ? projectData.elementStyles : []
-          }));
+            elementStyles: projectData.elementStyles || []
+          };
+
+          console.log("Setting merged project data to state:", {
+            customTextElementsCount: Object.keys(mergedData.customTextElements).length,
+            elementStylesCount: mergedData.elementStyles.length
+          });
+          
+          setCvData(mergedData);
           
           const loadedElementStyles = projectData.elementStyles || [];
           if (loadedElementStyles.length > 0) {
@@ -1795,13 +1809,13 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
           setDocumentTitle(project.name || 'Untitled CV');
           setProjectId(project.id);
           setLastSaved(new Date(project.updatedAt));
-          showNotification('Project loaded successfully', 'success'); // showNotification from useCallback
+          showNotification('Project loaded successfully', 'success');
         } catch (error) {
           console.error('Failed to load project:', error);
           showNotification('Failed to load project. Starting a new one.', 'error');
           setProjectId(null);
           setCvData({
-             ...sampleData, // sampleData from import
+             ...sampleData,
              customTextElements: {}, 
              elementStyles: [] 
           });
@@ -1810,7 +1824,6 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
           setIsLoading(false);
         }
       } else if (templateId) {
-        // ... (template loading logic, ensure sampleData is stable or add to deps)
         setIsLoading(true);
         setCvData({ ...sampleData, customTextElements: {}, elementStyles: [] });
         setDocumentTitle(`CV from Template ${templateId}`);
@@ -1818,7 +1831,6 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         setIsLoading(false);
         showNotification(`Started new CV from template ${templateId}`, 'info');
       } else if (!projectParam || projectParam.startsWith('generated-') || projectParam === 'null' || projectParam === 'undefined') {
-        // ... (new/blank canvas logic)
         const currentElementStyles = cvData.elementStyles || [];
         const currentCustomTextElements = cvData.customTextElements || {};
         if (currentElementStyles.length === 0 && Object.keys(currentCustomTextElements).length === 0 && !cvData.firstName) {
@@ -1834,7 +1846,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     if (isAuthenticated !== null) {
       loadProject();
     }
-  }, [location.search, isAuthenticated, showNotification, navigate, sampleData]); // Removed getCVById as it's stable; Added sampleData if used in template logic
+  }, [location.search, isAuthenticated, showNotification, navigate, sampleData]);
 
   // Define triggerAutosave with useCallback BEFORE the autoSave useEffect
   const triggerAutosave = useCallback(async () => {
@@ -1850,11 +1862,14 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
 
     if (!isAuthenticated || isSaving || isLoading || !hasPendingChanges) {
       if (!isSaving && hasPendingChanges) {
+        console.log("Not saving - conditions not met but hasPendingChanges is true");
         // Pending changes remain if not saving
       } else if (isSaving && hasPendingChanges) {
+        console.log("Not saving - save already in progress");
         // Save is in progress, it will handle pending changes
       } else {
         // No pending changes, or conditions not met to save, so clear the flag
+        console.log("Clearing hasPendingChanges flag");
         setHasPendingChanges(false); 
       }
       return;
@@ -1865,20 +1880,22 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
       setIsSaving(true);
       
       const storageName = documentTitle || 'Untitled CV';
-      // Ensure completeData has fallbacks for elements that might be undefined on cvData in theory
+      
+      // Safely create customTextElements and elementStyles by ensuring they're initialized as empty objects/arrays
+      const customTextElements = {...(cvData.customTextElements || {})};
+      const elementStyles = [...(cvData.elementStyles || [])];
+      
+      // Ensure completeData has all required properties
       const completeData: CVData = {
         ...cvData,
-        customTextElements: cvData.customTextElements || {},
-        elementStyles: cvData.elementStyles || []
+        customTextElements,
+        elementStyles
       };
       
-      // Fix the TypeScript error by creating local variables with null checks
-      const textElementsForLog = completeData.customTextElements || {};
-      const stylesForLog = completeData.elementStyles || [];
-      
+      // Added detailed logging for debugging
       console.log('Data prepared for autosave:', { 
-        customTextElementsCount: Object.keys(textElementsForLog).length,
-        elementStylesCount: stylesForLog.length
+        customTextElementsCount: Object.keys(customTextElements).length,
+        elementStylesCount: elementStyles.length
       });
 
       let savedOrUpdatedProject: CVProject;
@@ -1926,7 +1943,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     } finally {
       setIsSaving(false);
     }
-  }, [isAuthenticated, isSaving, isLoading, cvData, projectId, documentTitle, hasPendingChanges, showNotification, navigate]); // Removed saveCV, updateCV as they are imported and stable
+  }, [isAuthenticated, isSaving, isLoading, cvData, projectId, documentTitle, hasPendingChanges, showNotification, navigate]);
 
   // Auto-save interval useEffect (depends on triggerAutosave defined above)
   useEffect(() => {
@@ -1969,25 +1986,27 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
 
     try {
       const storageName = documentTitle || 'Untitled CV';
+      
+      // Safely create customTextElements and elementStyles
+      const customTextElements = {...(cvData.customTextElements || {})};
+      const elementStyles = [...(cvData.elementStyles || [])];
+      
+      // Ensure completeData has all required properties
       const completeData: CVData = {
         ...cvData,
-        customTextElements: cvData.customTextElements || {},
-        elementStyles: cvData.elementStyles || []
+        customTextElements,
+        elementStyles
       };
 
-      // Fix the TypeScript error by creating local variables with null checks
-      const textElementsForLog = completeData.customTextElements || {};
-      const stylesForLog = completeData.elementStyles || [];
-      
       console.log('Data prepared for manual save:', {
-        customTextElementsCount: Object.keys(textElementsForLog).length,
-        elementStylesCount: stylesForLog.length
+        customTextElementsCount: Object.keys(customTextElements).length,
+        elementStylesCount: elementStyles.length
       });
 
       let savedOrUpdatedProject: CVProject;
 
       if (projectId && projectId !== 'null' && projectId !== 'undefined' && !projectId.startsWith('generated-')) {
-        console.log(`Attempting to UPDATE existing project with ID: ${projectId}`);
+        console.log(`Manual save: Attempting to UPDATE existing project with ID: ${projectId}`);
         try {
           savedOrUpdatedProject = await updateCV(projectId, completeData, storageName);
           console.log("Project updated successfully via manual save:", savedOrUpdatedProject.id);
@@ -2003,7 +2022,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
           window.history.replaceState({}, '', url.toString());
         }
       } else {
-        console.log("Attempting to SAVE as NEW project (no valid projectId in state or it's a placeholder).");
+        console.log("Manual save: Attempting to SAVE as NEW project (no valid projectId in state or it's a placeholder).");
         savedOrUpdatedProject = await saveCV(completeData, storageName);
         setProjectId(savedOrUpdatedProject.id);
         console.log("Project saved as NEW successfully, new ID:", savedOrUpdatedProject.id);
@@ -2039,11 +2058,31 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   // Handle field change for custom text elements to save immediately upon changes
   const handleCustomTextChange = (id: string, value: string) => {
     console.log(`Editing text for element ${id}, new value:`, value);
-    setCvData(prev => ({
-      ...prev,
-      customTextElements: { ...(prev.customTextElements || {}), [id]: value }
-    }));
+    
+    // Update state with the new text content
+    setCvData(prev => {
+      // First ensure customTextElements exists with nullish coalescing
+      const currentCustomElements = prev.customTextElements || {};
+      
+      // Create a new object for customTextElements to ensure React detects the change
+      const updatedCustomElements = { 
+        ...currentCustomElements, 
+        [id]: value 
+      };
+      
+      console.log(`Updated customTextElements for ${id}, total elements:`, Object.keys(updatedCustomElements).length);
+      
+      // Return the updated cvData with the new customTextElements
+      return {
+        ...prev,
+        customTextElements: updatedCustomElements
+      };
+    });
+    
+    // Mark changes for saving
     setHasPendingChanges(true);
+    
+    // Debounce auto-save for performance
     if (changeDebounceTimer) clearTimeout(changeDebounceTimer);
     const timer = setTimeout(() => {
       if (isAuthenticated && !isSaving && hasPendingChanges) {
