@@ -1,3 +1,26 @@
+// Define styling types
+export interface TextStyle {
+  fontFamily: string;
+  fontSize: string;
+  fontWeight: string;
+  fontStyle: string;
+  textDecoration: string;
+  color: string;
+  textAlign: 'left' | 'center' | 'right' | 'justify';
+  width?: number;
+  position?: {
+    x: number;
+    y: number;
+    zIndex: number;
+  };
+}
+
+// Element styling interface
+export interface ElementStyle {
+  id: string;
+  style: TextStyle;
+}
+
 export interface CVData {
   firstName: string;
   lastName: string;
@@ -58,6 +81,27 @@ export interface CVData {
     createdAt?: string;
   }[];
   otherField?: string;
+  customTextElements?: {
+    [key: string]: string;
+  };
+  elementStyles?: {
+    id: string;
+    style: {
+      fontFamily: string;
+      fontSize: string;
+      fontWeight: string;
+      fontStyle: string;
+      textDecoration: string;
+      color: string;
+      textAlign: 'left' | 'center' | 'right' | 'justify';
+      width?: number;
+      position?: {
+        x: number;
+        y: number;
+        zIndex: number;
+      };
+    };
+  }[];
 }
 
 export const sampleData: CVData = {
@@ -224,5 +268,6 @@ export const sampleData: CVData = {
       link: "https://blog-demo.com"
     }
   ],
-  otherField: "This is a custom field that can be used for any additional information."
+  otherField: "This is a custom field that can be used for any additional information.",
+  customTextElements: {}
 }; 

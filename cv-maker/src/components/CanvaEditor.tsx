@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { CVData, sampleData } from '../types/types';
+import { CVData, sampleData, TextStyle, ElementStyle } from '../types/types';
 import { DndProvider, useDrag, useDrop, useDragLayer } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import type { XYCoord, DropTargetMonitor, DragSourceMonitor } from 'react-dnd';
@@ -11,29 +11,6 @@ import { useAuth } from '../context/AuthContext';
 interface CanvaEditorProps {
   initialData?: CVData;
   onSave?: (data: CVData) => void;
-}
-
-// Define styling types
-interface TextStyle {
-  fontFamily: string;
-  fontSize: string;
-  fontWeight: string;
-  fontStyle: string;
-  textDecoration: string;
-  color: string;
-  textAlign: 'left' | 'center' | 'right' | 'justify';
-  width?: number;
-  position?: {
-    x: number;
-    y: number;
-    zIndex: number;
-  };
-}
-
-// Element styling interface
-interface ElementStyle {
-  id: string;
-  style: TextStyle;
 }
 
 // Add a section for drag and drop types
@@ -774,7 +751,11 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [autoSaveInterval, setAutoSaveInterval] = useState<number>(10000); // 10 seconds
+  const [autoSaveInterval, setAutoSaveInterval] = useState<number>(3000); // 3 seconds for regular autosave
+  // Add a new state to track if there are pending changes
+  const [hasPendingChanges, setHasPendingChanges] = useState<boolean>(false);
+  // Add a debounce timer for changes
+  const [changeDebounceTimer, setChangeDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   
   // Add saving state to track when a save is in progress
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -837,6 +818,9 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
 
   // Add a state variable to track the next z-index to use
   const [nextZIndex, setNextZIndex] = useState<number>(100);
+
+  // Near the beginning of the component, let's add a version tracking state
+  const [versionTimestamp, setVersionTimestamp] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Duplicate the selected element
   const handleDuplicateElement = (id: string) => {
@@ -1011,6 +995,13 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
   
   // Replace the stopEditing function
   const stopEditing = () => {
+    // Trigger immediate save if there are pending changes
+    if (hasPendingChanges && isAuthenticated && !isSaving) {
+      console.log('Saving changes on stop editing');
+      triggerAutosave();
+      setHasPendingChanges(false);
+    }
+    
     setCurrentlyEditing(null);
     // Keep the element selected for styling
   };
@@ -1050,6 +1041,25 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         return [...prev, { id, style: newStyle }];
       }
     });
+    
+    // Mark as having changes that need to be saved
+    setHasPendingChanges(true);
+    
+    // Debounce autosave to prevent too many API calls
+    if (changeDebounceTimer) {
+      clearTimeout(changeDebounceTimer);
+    }
+    
+    // Trigger autosave after 500ms of inactivity
+    const timer = setTimeout(() => {
+      if (isAuthenticated && !isSaving && hasPendingChanges) {
+        console.log('Triggering autosave after text change');
+        triggerAutosave();
+        setHasPendingChanges(false);
+      }
+    }, 500);
+    
+    setChangeDebounceTimer(timer);
   };
   
   // Load saved title on initial render
@@ -1128,46 +1138,76 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     });
   };
   
-  // Handle field editing
+  // Fix the handleFieldChange function to log changes and trigger immediate save
   const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (!currentlyEditing) return;
     
     const { field, section, index, subfield } = currentlyEditing;
     
+    // Flag that we have pending changes
+    setHasPendingChanges(true);
+    
+    console.log(`Editing field: ${field}${section ? `, section: ${section}` : ''}${index !== undefined ? `, index: ${index}` : ''}${subfield ? `, subfield: ${subfield}` : ''}`);
+    console.log(`New value: ${e.target.value}`);
+    
     // Check if this is a custom text element (starts with 'custom-text-')
     if (field.startsWith('custom-text-')) {
       // Update custom text elements
-      setCustomTextElements(prev => ({
-        ...prev,
-        [field]: e.target.value
-      }));
-      return;
+      console.log('Updating custom text element');
+      setCustomTextElements(prev => {
+        const updated = {
+          ...prev,
+          [field]: e.target.value
+        };
+        console.log('Updated customTextElements:', updated);
+        return updated;
+      });
+    } else {
+      // Handle regular CV structure fields
+      console.log('Updating CV data field');
+      setCvData(prev => {
+        const newData = { ...prev };
+        
+        if (section && typeof index === 'number') {
+          if (subfield) {
+            // Handle nested fields like experience[0].company
+            console.log(`Setting ${section}[${index}].${subfield} to "${e.target.value}"`);
+            (newData[section as keyof CVData] as any)[index][subfield] = e.target.value;
+          } else {
+            // Handle array fields like skills[0]
+            console.log(`Setting ${section}[${index}] to "${e.target.value}"`);
+            (newData[section as keyof CVData] as any)[index] = e.target.value;
+          }
+        } else {
+          // Handle top-level fields like firstName
+          console.log(`Setting ${field} to "${e.target.value}"`);
+          (newData as any)[field] = e.target.value;
+        }
+        
+        // Call onSave if provided
+        if (onSave) {
+          onSave(newData);
+        }
+        
+        return newData;
+      });
     }
     
-    // Handle regular CV structure fields
-    setCvData(prev => {
-      const newData = { ...prev };
-      
-      if (section && typeof index === 'number') {
-        if (subfield) {
-          // Handle nested fields like experience[0].company
-          (newData[section as keyof CVData] as any)[index][subfield] = e.target.value;
-        } else {
-          // Handle array fields like skills[0]
-          (newData[section as keyof CVData] as any)[index] = e.target.value;
-        }
-      } else {
-        // Handle top-level fields like firstName
-        (newData as any)[field] = e.target.value;
+    // Debounce the autosave to prevent too many API calls
+    if (changeDebounceTimer) {
+      clearTimeout(changeDebounceTimer);
+    }
+    
+    // Trigger autosave after 500ms of inactivity
+    const timer = setTimeout(() => {
+      if (isAuthenticated && !isSaving && hasPendingChanges) {
+        console.log('Triggering autosave after text change');
+        triggerAutosave();
+        setHasPendingChanges(false);
       }
-      
-      // Call onSave if provided
-      if (onSave) {
-        onSave(newData);
-      }
-      
-      return newData;
-    });
+    }, 500);
+    
+    setChangeDebounceTimer(timer);
   };
   
   // Handle field keydown (save on Enter)
@@ -1308,6 +1348,24 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     
     // Automatically select the moved element
     setActiveElement(id);
+    
+    // Mark as having changes that need to be saved
+    setHasPendingChanges(true);
+    
+    // Debounce autosave to prevent too many API calls
+    if (changeDebounceTimer) {
+      clearTimeout(changeDebounceTimer);
+    }
+    
+    // Trigger autosave after position change with a delay
+    const timer = setTimeout(() => {
+      if (isAuthenticated && !isSaving && hasPendingChanges) {
+        triggerAutosave();
+        setHasPendingChanges(false);
+      }
+    }, 800); // Slightly longer delay for move operations
+    
+    setChangeDebounceTimer(timer);
   };
   
   // Handle element position update in absolute positioning
@@ -1350,6 +1408,24 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     
     // Automatically select the moved element
     setActiveElement(id);
+    
+    // Mark as having changes that need to be saved
+    setHasPendingChanges(true);
+    
+    // Debounce autosave to prevent too many API calls
+    if (changeDebounceTimer) {
+      clearTimeout(changeDebounceTimer);
+    }
+    
+    // Trigger autosave after position change with a delay
+    const timer = setTimeout(() => {
+      if (isAuthenticated && !isSaving && hasPendingChanges) {
+        triggerAutosave();
+        setHasPendingChanges(false);
+      }
+    }, 800); // Slightly longer delay for move operations
+    
+    setChangeDebounceTimer(timer);
   };
 
   // Bring element to front when selected
@@ -1739,14 +1815,47 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         // If project ID is provided, load the project
         if (projectParam) {
           try {
+            console.log("Attempting to load project with ID:", projectParam);
+            // Skip loading for generated IDs
+            if (projectParam.startsWith('generated-')) {
+              console.log("This is a generated ID, not loading from backend");
+              showNotification('Creating new CV from scratch', 'info');
+              return;
+            }
+            
             const project = await getCVById(projectParam);
+            
+            // Set CV data
             setCvData(project.data);
+            
+            // Also load the customTextElements if they're in the data
+            if (project.data.customTextElements) {
+              console.log('Found customTextElements in project data, loading them');
+              setCustomTextElements(project.data.customTextElements);
+            }
+
+            // Load saved element styles if they exist
+            if (project.data.elementStyles) {
+              console.log('Found elementStyles in project data, loading them');
+              setElementStyles(project.data.elementStyles);
+              
+              // Find the highest z-index to update nextZIndex
+              const highestZIndex = project.data.elementStyles.reduce((highest, style) => {
+                const zIndex = style.style.position?.zIndex || 0;
+                return Math.max(highest, zIndex);
+              }, 0);
+              
+              setNextZIndex(highestZIndex + 1);
+            }
+            
             setDocumentTitle(project.name);
             setProjectId(project.id);
             showNotification('Project loaded successfully', 'success');
           } catch (error) {
             console.error('Failed to load project:', error);
-            showNotification('Failed to load project', 'error');
+            showNotification('Failed to load project. Creating a new one.', 'error');
+            // Continue with a blank CV if loading fails
+            setProjectId(null);
           }
         }
       } catch (error) {
@@ -1766,46 +1875,16 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
     let autoSaveTimer: NodeJS.Timeout | null = null;
     
     const autoSave = async () => {
-      if (!isAuthenticated || !cvData) return;
-      
-      try {
-        // Don't auto-save if we're still loading the initial project or already saving
-        if (isLoading || isSaving) return;
-        
-        setIsSaving(true);
-        
-        if (projectId) {
-          // Update existing project
-          await updateCV(projectId, cvData, documentTitle);
-        } else {
-          // Save new project
-          const newProject = await saveCV(cvData, documentTitle || 'Untitled CV');
-          setProjectId(newProject.id);
-        }
-        
-        setLastSaved(new Date());
-        // Brief success notification that auto-fades
-        showNotification('Auto-saved', 'success', 1500);
-      } catch (error) {
-        console.error('Auto-save failed:', error);
-        if (String(error).includes('Authentication required')) {
-          showNotification('Please login to save your CV', 'error', 3000);
-          // Stop trying to auto-save if not authenticated
-          if (autoSaveTimer) {
-            clearInterval(autoSaveTimer);
-            autoSaveTimer = null;
-          }
-        } else {
-          showNotification('Auto-save failed', 'error');
-        }
-      } finally {
-        setIsSaving(false);
+      if (hasPendingChanges) {
+        await triggerAutosave();
+        setHasPendingChanges(false);
       }
     };
     
     // Set up auto-save interval
     if (isAuthenticated && !isLoading) {
       autoSaveTimer = setInterval(autoSave, autoSaveInterval);
+      console.log('Auto-save interval set up');
     }
     
     // Clean up on unmount
@@ -1814,7 +1893,7 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
         clearInterval(autoSaveTimer);
       }
     };
-  }, [isAuthenticated, cvData, projectId, documentTitle, isLoading, autoSaveInterval, isSaving]);
+  }, [isAuthenticated, cvData, customTextElements, projectId, documentTitle, isLoading, autoSaveInterval, isSaving, hasPendingChanges]);
   
   // Manual save function
   const handleManualSave = async () => {
@@ -1834,13 +1913,84 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
       setIsSaving(true);
       showNotification('Saving your CV...', 'info');
       
-      if (projectId) {
-        // Update existing project
-        await updateCV(projectId, cvData, documentTitle);
+      // Check for existing projectId in different places (state, URL, localStorage)
+      let currentProjectId = projectId;
+      
+      // If we don't have a projectId in state, check the URL
+      if (!currentProjectId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlProjectId = urlParams.get('project');
+        
+        // Don't use generated IDs or empty/undefined values
+        if (urlProjectId && !urlProjectId.startsWith('generated-') && urlProjectId !== 'undefined') {
+          currentProjectId = urlProjectId;
+        }
+      }
+      
+      // If we still don't have a projectId, check localStorage
+      if (!currentProjectId) {
+        const savedProjectId = localStorage.getItem('last_edited_project_id');
+        if (savedProjectId && !savedProjectId.startsWith('generated-') && savedProjectId !== 'undefined') {
+          currentProjectId = savedProjectId;
+        }
+      }
+      
+      // Create a storage name that includes a version timestamp
+      const storageName = `${documentTitle}`;
+      
+      // Create a complete CV data object that includes custom text elements and element styles
+      const completeData = {
+        ...cvData,
+        // Add customTextElements to the data for saving
+        customTextElements: customTextElements,
+        // Add elementStyles to the data for saving
+        elementStyles: elementStyles
+      };
+      
+      console.log('Saving CV data with custom text elements:', Object.keys(customTextElements).length);
+      console.log('Saving CV data with element styles:', elementStyles.length);
+      
+      // IMPORTANT: Only attempt to update if we have a valid project ID
+      if (currentProjectId && currentProjectId !== 'undefined' && currentProjectId !== 'null') {
+        try {
+          // Update existing project with complete data
+          await updateCV(currentProjectId, completeData, storageName);
+          
+          // Make sure projectId is set in state in case we found it from URL or localStorage
+          if (projectId !== currentProjectId) {
+            setProjectId(currentProjectId);
+          }
+        } catch (updateError) {
+          console.error("Error updating project, will create new:", updateError);
+          // If update fails, fall back to creating a new project
+          const newProject = await saveCV(completeData, storageName);
+          const newProjectId = newProject.id;
+          setProjectId(newProjectId);
+          
+          // Store in localStorage for persistence between sessions
+          localStorage.setItem('last_edited_project_id', newProjectId);
+          
+          // Update URL with the new project ID without page refresh
+          const url = new URL(window.location.href);
+          url.searchParams.set('project', newProjectId);
+          window.history.replaceState({}, '', url.toString());
+        }
       } else {
-        // Save new project
-        const newProject = await saveCV(cvData, documentTitle || 'Untitled CV');
-        setProjectId(newProject.id);
+        console.log("Creating new project (no valid ID found)");
+        // Save new project only if we truly don't have an ID
+        const newProject = await saveCV(completeData, storageName);
+        const newProjectId = newProject.id;
+        setProjectId(newProjectId);
+        
+        // Store in localStorage for persistence between sessions
+        localStorage.setItem('last_edited_project_id', newProjectId);
+        
+        // Update URL with the new project ID without page refresh
+        const url = new URL(window.location.href);
+        url.searchParams.set('project', newProjectId);
+        window.history.replaceState({}, '', url.toString());
+        
+        console.log("Created new project with ID:", newProjectId);
       }
       
       setLastSaved(new Date());
@@ -1852,6 +2002,121 @@ const CanvaEditor: React.FC<CanvaEditorProps> = ({ initialData, onSave }) => {
       setIsSaving(false);
     }
   };
+  
+  // Modify the triggerAutosave function to include customTextElements
+  const triggerAutosave = async () => {
+    if (!isAuthenticated || isSaving || isLoading) return;
+    
+    try {
+      setIsSaving(true);
+      
+      // Check for existing projectId in different places (state, URL, localStorage)
+      let currentProjectId = projectId;
+      
+      // If we don't have a projectId in state, check the URL
+      if (!currentProjectId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlProjectId = urlParams.get('project');
+        
+        // Don't use generated IDs or empty/undefined values
+        if (urlProjectId && !urlProjectId.startsWith('generated-') && urlProjectId !== 'undefined') {
+          currentProjectId = urlProjectId;
+        }
+      }
+      
+      // If we still don't have a projectId, check localStorage
+      if (!currentProjectId) {
+        const savedProjectId = localStorage.getItem('last_edited_project_id');
+        if (savedProjectId && !savedProjectId.startsWith('generated-') && savedProjectId !== 'undefined') {
+          currentProjectId = savedProjectId;
+        }
+      }
+      
+      // Create a storage name that includes a version timestamp
+      const storageName = `${documentTitle}`;
+      
+      // Create a complete CV data object that includes custom text elements and element styles
+      const completeData = {
+        ...cvData,
+        // Add customTextElements to the data for saving
+        customTextElements: customTextElements,
+        // Add elementStyles to the data for saving
+        elementStyles: elementStyles
+      };
+      
+      console.log('Saving CV data with custom text elements:', Object.keys(customTextElements).length);
+      console.log('Saving CV data with element styles:', elementStyles.length);
+      
+      // IMPORTANT: Only attempt to update if we have a valid project ID
+      if (currentProjectId && currentProjectId !== 'undefined' && currentProjectId !== 'null') {
+        console.log("Updating existing project:", currentProjectId);
+        try {
+          // Update existing project with complete data
+          const updatedProject = await updateCV(currentProjectId, completeData, storageName);
+          console.log("Project updated successfully:", updatedProject);
+          
+          // Make sure projectId is set in state in case we found it from URL or localStorage
+          if (projectId !== currentProjectId) {
+            setProjectId(currentProjectId);
+          }
+        } catch (updateError) {
+          console.error("Error updating project, will create new:", updateError);
+          // If update fails, fall back to creating a new project
+          const newProject = await saveCV(completeData, storageName);
+          const newProjectId = newProject.id;
+          setProjectId(newProjectId);
+          
+          // Store in localStorage for persistence between sessions
+          localStorage.setItem('last_edited_project_id', newProjectId);
+          
+          // Update URL with the new project ID without page refresh
+          const url = new URL(window.location.href);
+          url.searchParams.set('project', newProjectId);
+          window.history.replaceState({}, '', url.toString());
+        }
+      } else {
+        console.log("Creating new project (no valid ID found)");
+        // Save new project only if we truly don't have an ID
+        const newProject = await saveCV(completeData, storageName);
+        const newProjectId = newProject.id;
+        setProjectId(newProjectId);
+        
+        // Store in localStorage for persistence between sessions
+        localStorage.setItem('last_edited_project_id', newProjectId);
+        
+        // Update URL with the new project ID without page refresh
+        const url = new URL(window.location.href);
+        url.searchParams.set('project', newProjectId);
+        window.history.replaceState({}, '', url.toString());
+        
+        console.log("Created new project with ID:", newProjectId);
+      }
+      
+      setLastSaved(new Date());
+      // Brief success notification that auto-fades
+      showNotification('Auto-saved', 'success', 1500);
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+      if (String(error).includes('Authentication required')) {
+        showNotification('Please login to save your CV', 'error', 3000);
+      } else {
+        showNotification('Auto-save failed', 'error');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  // Add a new useEffect to clean up the change debounce timer
+  // Place it after other useEffects but before the return statement
+  useEffect(() => {
+    // Clean up the debounce timer on unmount
+    return () => {
+      if (changeDebounceTimer) {
+        clearTimeout(changeDebounceTimer);
+      }
+    };
+  }, [changeDebounceTimer]);
   
   return (
     <DndProvider backend={HTML5Backend}>

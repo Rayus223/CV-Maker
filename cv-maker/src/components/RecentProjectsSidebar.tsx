@@ -120,7 +120,13 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({
           <div 
             key={project.id || index} 
             className="p-4 hover:bg-gray-50 transition cursor-pointer"
-            onClick={() => onProjectClick(index)}
+            onClick={(e) => {
+              console.log("Project clicked in sidebar:", {index, project});
+              if (!project.id) {
+                console.error("Project ID is missing", project);
+              }
+              onProjectClick(index);
+            }}
           >
             {project.image && (
               <div className="mb-2 aspect-video overflow-hidden rounded">

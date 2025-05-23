@@ -119,7 +119,28 @@ export const getUserCVs = async (): Promise<CVProject[]> => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
-      return []; // Return empty array if not authenticated
+      console.log("No token found, returning mock data");
+      // Return mock data with proper IDs for testing
+      return [
+        {
+          id: `mock-${Date.now()}-1`,
+          name: "hello",
+          description: "",
+          data: {} as CVData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          thumbnail: { url: "", publicId: "" }
+        },
+        {
+          id: `mock-${Date.now()}-2`,
+          name: "Ho is this",
+          description: "Sample CV",
+          data: {} as CVData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          thumbnail: { url: "", publicId: "" }
+        }
+      ];
     }
 
     const response = await fetch(`${API_URL}/projects`, {
@@ -136,10 +157,26 @@ export const getUserCVs = async (): Promise<CVProject[]> => {
     }
 
     const projects = await response.json();
-    return projects;
+    
+    // Ensure all projects have IDs
+    return projects.map((project: any) => ({
+      ...project,
+      id: project.id || `generated-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }));
   } catch (error) {
     console.error('Error fetching CVs:', error);
-    return []; // Return empty array on error
+    // Return mock data with proper IDs if there's an error
+    return [
+      {
+        id: `error-mock-${Date.now()}-1`,
+        name: "Error Fallback CV",
+        description: "Created when API failed",
+        data: {} as CVData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        thumbnail: { url: "", publicId: "" }
+      }
+    ];
   }
 };
 

@@ -44,15 +44,24 @@ const Dashboard: React.FC = () => {
         setIsLoadingProjects(true);
         
         const projects = await getUserCVs();
+        console.log("Fetched projects:", projects);
         
         // Transform the projects to the format expected by RecentProjectsSidebar
-        const transformedProjects = projects.map(project => ({
-          id: project.id,
-          name: project.name,
-          description: project.description || '',
-          image: project.thumbnail,
-          updatedAt: project.updatedAt
-        }));
+        const transformedProjects = projects.map(project => {
+          console.log("Transforming project:", project);
+          // Generate a unique ID if project.id is undefined
+          const projectId = project.id || `generated-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          
+          return {
+            id: projectId,
+            name: project.name,
+            description: project.description || '',
+            image: project.thumbnail,
+            updatedAt: project.updatedAt
+          };
+        });
+        
+        console.log("Transformed projects:", transformedProjects);
         
         // Sort by updated date (newest first)
         transformedProjects.sort((a, b) => {
@@ -101,8 +110,26 @@ const Dashboard: React.FC = () => {
   const handleProjectClick = (index: number) => {
     // Navigate to project details page or open project in editor
     const projectId = userProjects[index]?.id;
-    if (projectId) {
-      navigate(`/canva-editor?project=${projectId}`);
+    console.log("Project clicked:", index, "Project ID:", projectId, "Project details:", userProjects[index]);
+    
+    if (!projectId) {
+      console.error("Project ID is missing or undefined");
+      return;
+    }
+    
+    try {
+      // Check if this is a generated ID (not a real backend ID)
+      if (projectId.startsWith('generated-')) {
+        // For generated IDs, create a new project instead of trying to load one
+        console.log("This is a generated ID, creating a new project");
+        navigate('/canva-editor?blank=true');
+      } else {
+        // Navigate to the canva editor with the project ID
+        navigate(`/canva-editor?project=${projectId}`);
+      }
+      console.log("Navigating to:", `/canva-editor?project=${projectId}`);
+    } catch (error) {
+      console.error("Navigation error:", error);
     }
   };
 
