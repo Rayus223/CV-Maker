@@ -67,6 +67,18 @@ router.post('/', auth, async (req, res) => {
   try {
     const { name, description, data, thumbnail } = req.body;
     
+    console.log('Creating new project with thumbnail:', JSON.stringify(thumbnail));
+    
+    // Validate thumbnail if provided
+    if (thumbnail && typeof thumbnail === 'object') {
+      if (!thumbnail.url) {
+        thumbnail.url = '';
+      }
+      if (!thumbnail.publicId) {
+        thumbnail.publicId = '';
+      }
+    }
+    
     // Create new project
     const newProject = new Project({
       name: name || 'Untitled CV',
@@ -98,6 +110,17 @@ router.put('/:id', auth, async (req, res) => {
     const { name, description, data, thumbnail } = req.body;
     
     console.log(`Updating project ${req.params.id}`);
+    console.log('With thumbnail:', JSON.stringify(thumbnail));
+
+    // Validate thumbnail if provided
+    if (thumbnail && typeof thumbnail === 'object') {
+      if (!thumbnail.url) {
+        thumbnail.url = '';
+      }
+      if (!thumbnail.publicId) {
+        thumbnail.publicId = '';
+      }
+    }
 
     // Check if ID is valid
     if (!req.params.id || req.params.id === 'undefined' || req.params.id === 'null') {

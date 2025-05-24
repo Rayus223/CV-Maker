@@ -176,9 +176,10 @@ const CanvaEditor: React.FC = () => {
       
       let savedProject: CVProject;
       
-      if (!projectId || projectId === '') {
+      if (!projectId || projectId === '' || projectId === 'undefined' || projectId === 'null') {
         // This is a new project, use saveCV
         try {
+          console.log('Creating a new project via saveCV');
           savedProject = await saveCV(
             cvData, 
             projectName, 
@@ -190,7 +191,7 @@ const CanvaEditor: React.FC = () => {
           const newUrl = `/canva-editor?project=${savedProject.id}`;
           window.history.replaceState(null, '', newUrl);
           
-          // Update local state
+          // Update local state with the new MongoDB-generated ID
           setProjectId(savedProject.id);
           console.log('New project created with ID:', savedProject.id);
         } catch (saveError) {
@@ -208,6 +209,15 @@ const CanvaEditor: React.FC = () => {
             projectDescription,
             thumbnail
           );
+          
+          // Make sure the projectId state is correct
+          if (savedProject.id !== projectId) {
+            console.log(`Project ID changed from ${projectId} to ${savedProject.id}`);
+            setProjectId(savedProject.id);
+            // Update URL if needed
+            const newUrl = `/canva-editor?project=${savedProject.id}`;
+            window.history.replaceState(null, '', newUrl);
+          }
         } catch (updateError) {
           console.error('Error updating project:', updateError);
           throw updateError;
@@ -350,17 +360,27 @@ const CanvaEditor: React.FC = () => {
       });
       
       // Convert canvas to base64 data URL
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // Reduced quality for smaller size
       
-      // In a real implementation, you would upload this to a service like Cloudinary
-      // For now, we'll just return the data URL
+      // Generate a unique ID that doesn't include undefined
+      const uniqueId = projectId && projectId !== 'undefined' && projectId !== 'null' 
+        ? `canva-thumbnail-${projectId}` 
+        : `canva-thumbnail-${Date.now()}`;
+      
+      console.log(`Generated thumbnail with ID: ${uniqueId}`);
+      
+      // Return a valid thumbnail object
       return {
         url: dataUrl,
-        publicId: `canva-thumbnail-${projectId}`
+        publicId: uniqueId
       };
     } catch (error) {
       console.error('Error generating thumbnail:', error);
-      return undefined;
+      // Return a default thumbnail if generation fails
+      return {
+        url: '',
+        publicId: `canva-thumbnail-default-${Date.now()}`
+      };
     }
   };
 
@@ -421,9 +441,10 @@ const CanvaEditor: React.FC = () => {
       
       let savedProject: CVProject;
       
-      if (!projectId || projectId === '') {
+      if (!projectId || projectId === '' || projectId === 'undefined' || projectId === 'null') {
         // This is a new project, use saveCV
         try {
+          console.log('Creating a new project via saveCV');
           savedProject = await saveCV(
             cvData, 
             projectName, 
@@ -453,6 +474,15 @@ const CanvaEditor: React.FC = () => {
             projectDescription,
             thumbnail
           );
+          
+          // Make sure the projectId state is correct
+          if (savedProject.id !== projectId) {
+            console.log(`Project ID changed from ${projectId} to ${savedProject.id}`);
+            setProjectId(savedProject.id);
+            // Update URL if needed
+            const newUrl = `/canva-editor?project=${savedProject.id}`;
+            window.history.replaceState(null, '', newUrl);
+          }
         } catch (updateError) {
           console.error('Error updating project:', updateError);
           throw updateError;

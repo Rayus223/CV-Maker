@@ -23,8 +23,14 @@ const ProjectSchema = new Schema({
     // Make sure there's no size limitation or validation that could be truncating the data
   },
   thumbnail: {
-    type: String,
-    default: ''
+    url: {
+      type: String,
+      default: ''
+    },
+    publicId: {
+      type: String,
+      default: ''
+    }
   },
   createdAt: {
     type: Date,
@@ -39,7 +45,11 @@ const ProjectSchema = new Schema({
   // This enables handling larger documents
   bufferCommands: false,
   // Add useNestedStrict to handle nested objects properly
-  strict: false
+  strict: false,
+  // Increase the size limit for documents
+  autoIndex: true,
+  // Set timestamps to automatically handle createdAt and updatedAt
+  timestamps: true
 });
 
 // Update the 'updatedAt' field on save
