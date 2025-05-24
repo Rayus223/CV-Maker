@@ -57,6 +57,8 @@ const CanvaEditor: React.FC = () => {
     const projectIdParam = params.get('projectId');
     const isNewProject = params.get('blank') === 'true';
     
+    console.log("URL Parameters:", { projectParam, projectIdParam, isNewProject });
+    
     if (isNewProject) {
       // Create a new project without setting an ID first
       // Let MongoDB generate the ID when saving
@@ -70,13 +72,29 @@ const CanvaEditor: React.FC = () => {
       
       console.log('Initialized new blank project');
     } else if (projectParam) {
-      // Load existing project
-      setProjectId(projectParam);
-      fetchProjectData(projectParam);
+      // Check if this looks like a valid MongoDB ObjectId
+      const isValidMongoId = /^[0-9a-fA-F]{24}$/.test(projectParam);
+      
+      if (isValidMongoId) {
+        console.log(`Valid MongoDB ObjectId detected: ${projectParam}`);
+        setProjectId(projectParam);
+        fetchProjectData(projectParam);
+      } else {
+        console.warn(`Received invalid MongoDB ObjectId format: ${projectParam}`);
+        // Handle invalid ID - create a new project
+        setProjectId('');
+        setProjectName('Untitled Project');
+        setElements([]);
+        // Update URL to reflect we're creating a new project
+        window.history.replaceState(null, '', '/canva-editor?blank=true');
+      }
     } else {
       // Fallback to creating a new project without a set ID
+      console.log("No project ID provided, creating a new blank project");
       setProjectId('');
       setElements([]);
+      // Update URL to reflect we're creating a new project
+      window.history.replaceState(null, '', '/canva-editor?blank=true');
     }
   }, [location.search]);
 
@@ -264,8 +282,7 @@ const CanvaEditor: React.FC = () => {
   // Fetch project data if editing an existing project
   const fetchProjectData = async (id: string) => {
     try {
-      // This would be replaced with an actual API call to fetch the project by ID
-      console.log(`Fetching project data for ID: ${id}`);
+      console.log(`Attempting to fetch project data for ID: ${id}`);
       
       const token = localStorage.getItem('token');
       if (!token) {
@@ -273,7 +290,11 @@ const CanvaEditor: React.FC = () => {
         return;
       }
       
-      const response = await fetch(`http://localhost:5000/api/projects/${id}`, {
+      // Add debugging for the API URL
+      const apiUrl = `http://localhost:5000/api/projects/${id}`;
+      console.log(`Making API request to: ${apiUrl}`);
+      
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Authorization': token,
@@ -283,10 +304,13 @@ const CanvaEditor: React.FC = () => {
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch project: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error(`Failed to fetch project: Status ${response.status}, Response:`, errorText);
+        throw new Error(`Failed to fetch project: ${response.status} - ${errorText}`);
       }
       
       const project = await response.json();
+      console.log("Successfully fetched project data:", project);
       
       // Update state with project data
       setProjectName(project.name || 'Untitled Project');
@@ -295,13 +319,26 @@ const CanvaEditor: React.FC = () => {
       // Check if project has elements data
       if (project.data && project.data.customTextElements && project.data.customTextElements._canvaElements) {
         try {
+          console.log("Found canvas elements in project data");
           const canvaElements = JSON.parse(project.data.customTextElements._canvaElements);
+          console.log("Parsed canvas elements:", canvaElements);
           setElements(canvaElements);
         } catch (parseError) {
           console.error('Error parsing canvas elements:', parseError);
           setElements([]);
         }
       } else {
+        // Log what's missing in the project data
+        console.warn("Missing expected project data structure:");
+        console.log("project.data exists:", !!project.data);
+        if (project.data) {
+          console.log("project.data.customTextElements exists:", !!project.data.customTextElements);
+          if (project.data.customTextElements) {
+            console.log("project.data.customTextElements._canvaElements exists:", !!project.data.customTextElements._canvaElements);
+          }
+        }
+        
+        console.log("Using fallback sample data");
         // Fallback sample data if no elements found
         setElements([
           {
@@ -327,6 +364,17 @@ const CanvaEditor: React.FC = () => {
       
     } catch (error) {
       console.error('Error fetching project data:', error);
+      
+      // More detailed error handling
+      if (error instanceof Error) {
+        // Check if this might be a MongoDB ObjectId format issue
+        if (error.message.includes('invalid ID format') || 
+            error.message.includes('Cast to ObjectId failed') ||
+            error.message.includes('not found')) {
+          console.warn("This appears to be an ID format issue. The ID might not be a valid MongoDB ObjectId.");
+        }
+      }
+      
       // Set some default data
       setProjectName(`Project ${id.substring(0, 6)}`);
       setElements([

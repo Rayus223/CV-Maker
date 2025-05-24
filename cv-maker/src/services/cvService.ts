@@ -201,12 +201,33 @@ export const getUserCVs = async (): Promise<CVProject[]> => {
     }
 
     const projects = await response.json();
+    console.log("Raw projects from API:", projects);
     
-    // Ensure all projects have IDs
-    return projects.map((project: any) => ({
-      ...project,
-      id: project.id || `generated-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    }));
+    // Ensure all projects have IDs - MongoDB returns _id which we need to map to id
+    return projects.map((project: any) => {
+      // Make sure we have an id property that matches MongoDB's _id
+      const id = project._id || project.id || `generated-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Ensure thumbnail is in the correct format
+      let thumbnail = project.thumbnail;
+      if (!thumbnail) {
+        thumbnail = { url: '', publicId: '' };
+      } else if (typeof thumbnail === 'string') {
+        // Handle case where thumbnail is a string (legacy format)
+        thumbnail = { url: thumbnail, publicId: '' };
+      } else if (!thumbnail.url) {
+        thumbnail.url = '';
+      }
+      
+      console.log(`Processed project: _id=${project._id}, id=${id}, name=${project.name}`);
+      
+      return {
+        ...project,
+        id: id,      // Ensure id property is set
+        _id: id,     // Also keep _id for components that might use it
+        thumbnail    // Ensure thumbnail is properly formatted
+      };
+    });
   } catch (error) {
     console.error('Error fetching CVs:', error);
     // Return mock data with proper IDs if there's an error

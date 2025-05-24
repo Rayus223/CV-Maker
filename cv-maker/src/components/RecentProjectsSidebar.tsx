@@ -18,6 +18,13 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({
   onRefresh,
   isRefreshing = false
 }) => {
+  // Log the full projects data for debugging
+  React.useEffect(() => {
+    if (recentProjects && recentProjects.length > 0) {
+      console.log("RecentProjectsSidebar received projects:", recentProjects);
+    }
+  }, [recentProjects]);
+
   const renderHeader = () => (
     <div className="flex justify-between items-center mb-4">
       <h3 className="text-xl font-medium text-brand-primary">Recent Projects</h3>
@@ -116,52 +123,76 @@ const RecentProjectsSidebar: React.FC<RecentProjectsSidebarProps> = ({
             Refreshing projects...
           </div>
         )}
-        {recentProjects.map((project, index) => (
-          <div 
-            key={project.id || index} 
-            className="p-4 hover:bg-gray-50 transition cursor-pointer"
-            onClick={(e) => {
-              console.log("Project clicked in sidebar:", {index, project});
-              if (!project.id) {
-                console.error("Project ID is missing", project);
-              }
-              onProjectClick(index);
-            }}
-          >
-            {project.image && (
-              <div className="mb-2 aspect-video overflow-hidden rounded">
-                <img 
-                  src={project.image.url} 
-                  alt={project.name} 
-                  className="w-full h-full object-cover transition transform hover:scale-105"
-                />
-              </div>
-            )}
-            <h4 className="font-medium text-gray-900">{project.name}</h4>
-            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{project.description}</p>
-            {project.updatedAt && (
-              <p className="text-xs text-gray-500 mt-1">
-                Updated: {new Date(project.updatedAt).toLocaleDateString()}
+        {recentProjects.map((project, index) => {
+          // Extract the MongoDB _id from project if available (using any type to avoid TS errors)
+          const mongoId = (project as any)._id;
+          const projectId = project.id || mongoId || '';
+
+          // Determine if the image property contains a valid thumbnail
+          const hasValidImage = project.image && 
+            (typeof project.image === 'object' && project.image !== null && 'url' in project.image && project.image.url);
+
+          return (
+            <div 
+              key={projectId || index} 
+              className="p-4 hover:bg-gray-50 transition cursor-pointer"
+              onClick={() => {
+                console.log("Project clicked in sidebar:", {
+                  index,
+                  project,
+                  id: projectId,
+                  mongoId: mongoId,
+                  hasValidImage: hasValidImage
+                });
+                
+                if (!projectId) {
+                  console.error("Project ID is missing", project);
+                }
+                
+                onProjectClick(index);
+              }}
+            >
+              {/* Only render the image if it has a valid structure with url */}
+              {hasValidImage && (
+                <div className="mb-2 aspect-video overflow-hidden rounded">
+                  <img 
+                    src={(project.image as any).url} 
+                    alt={project.name} 
+                    className="w-full h-full object-cover transition transform hover:scale-105"
+                  />
+                </div>
+              )}
+              <h4 className="font-medium text-gray-900">{project.name}</h4>
+              <p className="text-sm text-gray-600 mt-1 line-clamp-2">{project.description}</p>
+              {project.updatedAt && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Updated: {new Date(project.updatedAt).toLocaleDateString()}
+                </p>
+              )}
+              {/* Show project ID for debugging */}
+              <p className="text-xs text-gray-400 mt-1 truncate">
+                ID: {projectId}
               </p>
-            )}
-            {project.id && project.id.startsWith('local-') && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
-                Local
-              </span>
-            )}
-            {project.link && (
-              <a 
-                href={project.link} 
-                target="_blank" 
-                rel="noreferrer" 
-                className="text-brand-primary text-sm mt-2 inline-block hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                View Project
-              </a>
-            )}
-          </div>
-        ))}
+              {projectId && (projectId.startsWith('local-') || projectId.startsWith('generated-') || projectId.startsWith('mock-')) && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
+                  {projectId.startsWith('local-') ? 'Local' : 
+                   projectId.startsWith('mock-') ? 'Mock' : 'Generated'}
+                </span>
+              )}
+              {project.link && (
+                <a 
+                  href={project.link} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="text-brand-primary text-sm mt-2 inline-block hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View Project
+                </a>
+              )}
+            </div>
+          );
+        })}
       </div>
     </aside>
   );

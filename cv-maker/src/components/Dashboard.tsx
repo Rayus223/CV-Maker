@@ -49,15 +49,24 @@ const Dashboard: React.FC = () => {
         // Transform the projects to the format expected by RecentProjectsSidebar
         const transformedProjects = projects.map(project => {
           console.log("Transforming project:", project);
-          // Generate a unique ID if project.id is undefined
-          const projectId = project.id || `generated-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          
+          // MongoDB returns _id but our interface uses id - handle both cases
+          // Need to use type assertion since _id isn't in our interface
+          const mongoId = (project as any)._id;
+          const projectId = mongoId || project.id || '';
+          
+          console.log(`Project ID extracted: ${projectId} (from _id: ${mongoId}, id: ${project.id})`);
+          
+          if (!projectId) {
+            console.warn("Project has no ID:", project);
+          }
           
           return {
             id: projectId,
-            name: project.name,
+            name: project.name || 'Untitled Project',
             description: project.description || '',
-            image: project.thumbnail,
-            updatedAt: project.updatedAt
+            image: project.thumbnail, // thumbnail is already optional in the interface
+            updatedAt: project.updatedAt || new Date().toISOString()
           };
         });
         
@@ -65,7 +74,7 @@ const Dashboard: React.FC = () => {
         
         // Sort by updated date (newest first)
         transformedProjects.sort((a, b) => {
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+          return new Date(b.updatedAt || '').getTime() - new Date(a.updatedAt || '').getTime();
         });
         
         setUserProjects(transformedProjects);
@@ -108,28 +117,70 @@ const Dashboard: React.FC = () => {
   }, [user?.id]);
 
   const handleProjectClick = (index: number) => {
-    // Navigate to project details page or open project in editor
-    const projectId = userProjects[index]?.id;
-    console.log("Project clicked:", index, "Project ID:", projectId, "Project details:", userProjects[index]);
+    // Get the project from the array
+    const project = userProjects[index];
+    if (!project) {
+      console.error("Project not found at index:", index);
+      navigate('/canva-editor?blank=true');
+      return;
+    }
+    
+    // Try to get the MongoDB _id first (might be attached from the API)
+    const mongoId = (project as any)._id;
+    // Fall back to the id property if _id doesn't exist
+    const projectId = mongoId || project.id;
+    
+    console.log("Project clicked:", {
+      index,
+      projectId,
+      mongoId,
+      project
+    });
     
     if (!projectId) {
       console.error("Project ID is missing or undefined");
+      // Fallback to creating a new project if no ID is available
+      navigate('/canva-editor?blank=true');
       return;
     }
     
     try {
-      // Check if this is a generated ID (not a real backend ID)
-      if (projectId.startsWith('generated-')) {
+      // Check if this is a generated/mock ID (not a real backend ID)
+      if (projectId.startsWith('generated-') || 
+          projectId.startsWith('local-') || 
+          projectId.startsWith('new-') || 
+          projectId.startsWith('mock-') || 
+          projectId.startsWith('error-mock-')) {
         // For generated IDs, create a new project instead of trying to load one
-        console.log("This is a generated ID, creating a new project");
+        console.log("This is a generated/mock ID, creating a new project");
         navigate('/canva-editor?blank=true');
       } else {
-        // Navigate to the canva editor with the project ID
-        navigate(`/canva-editor?project=${projectId}`);
+        // Make sure we're dealing with a valid MongoDB ObjectId if possible
+        // MongoDB ObjectIds are typically 24 characters of hex
+        const isValidMongoId = /^[0-9a-fA-F]{24}$/.test(projectId);
+        
+        if (isValidMongoId) {
+          // Navigate to the canva editor with the project ID
+          console.log("Navigating to valid MongoDB project:", `/canva-editor?project=${projectId}`);
+          navigate(`/canva-editor?project=${projectId}`);
+        } else {
+          console.warn("Project ID doesn't match MongoDB ObjectId format:", projectId);
+          
+          // Before giving up, check if the project has a real backend ID we can use
+          if (typeof mongoId === 'string' && mongoId && /^[0-9a-fA-F]{24}$/.test(mongoId)) {
+            console.log("Found valid MongoDB _id, using that instead:", mongoId);
+            navigate(`/canva-editor?project=${mongoId}`);
+          } else {
+            // If no valid ID is found, create a new project
+            console.warn("No valid MongoDB ID found, creating new project");
+            navigate('/canva-editor?blank=true');
+          }
+        }
       }
-      console.log("Navigating to:", `/canva-editor?project=${projectId}`);
     } catch (error) {
       console.error("Navigation error:", error);
+      // Fallback to creating a new project if navigation fails
+      navigate('/canva-editor?blank=true');
     }
   };
 
