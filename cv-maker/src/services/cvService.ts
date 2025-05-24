@@ -95,6 +95,12 @@ export const updateCV = async (
   thumbnail?: { url: string; publicId: string }
 ): Promise<CVProject> => {
   try {
+    // Check if the ID is valid
+    if (!id || id === 'undefined' || id === 'null' || id.trim() === '') {
+      console.log('Invalid project ID provided to updateCV. Creating new project instead.');
+      return saveCV(cvData, name || 'Untitled Project', description, thumbnail);
+    }
+    
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Authentication required to update CV. Please log in.');
@@ -114,7 +120,7 @@ export const updateCV = async (
     }
     
     if (cvData.elementStyles) {
-      console.log(`CV contains ${cvData.elementStyles.length} element styles`);
+      console.log(`CV contains ${cvData.elementStyles ? cvData.elementStyles.length : 0} element styles`);
     }
 
     const response = await fetch(`${API_URL}/projects/${id}`, {
@@ -131,6 +137,13 @@ export const updateCV = async (
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Failed to update CV: Status ${response.status}, Response:`, errorText);
+      
+      // If project not found, create a new one
+      if (response.status === 404 || response.status === 400) {
+        console.log('Project not found or invalid ID. Creating new project instead.');
+        return saveCV(cvData, name || 'Untitled Project', description, thumbnail);
+      }
+      
       throw new Error(`Failed to update CV: ${response.statusText} - ${errorText}`);
     }
 

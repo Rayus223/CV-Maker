@@ -221,8 +221,17 @@ const Dashboard: React.FC = () => {
     setShowCreateOptions(false);
     
     if (option === 'scratch') {
-      // Navigate to blank editor
-      navigate('/canva-editor?blank=true');
+      // Generate a unique ID for the new project
+      const projectId = `new-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      
+      // Save this ID to localStorage so we can retrieve it later if needed
+      localStorage.setItem('lastCreatedProjectId', projectId);
+      
+      // Navigate to blank editor with the project ID
+      navigate(`/canva-editor?blank=true&projectId=${projectId}`);
+      
+      // Log creation for debugging
+      console.log(`Created new project with ID: ${projectId}`);
     } else {
       // Navigate to templates page
       navigate('/templates');

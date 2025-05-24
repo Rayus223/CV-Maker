@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const mongoose = require('mongoose');
 
 // Define a Project model schema using mongoose
-
 const Project = require('../models/Project');
 
 /**
@@ -28,6 +28,11 @@ router.get('/', auth, async (req, res) => {
  */
 router.get('/:id', auth, async (req, res) => {
   try {
+    // Check if ID is valid
+    if (!req.params.id || req.params.id === 'undefined' || req.params.id === 'null') {
+      return res.status(400).json({ msg: 'Invalid project ID provided' });
+    }
+
     const project = await Project.findById(req.params.id);
     
     // Check if project exists
@@ -46,7 +51,7 @@ router.get('/:id', auth, async (req, res) => {
     
     // Check if ID format is valid
     if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'Project not found' });
+      return res.status(404).json({ msg: 'Project not found - invalid ID format' });
     }
     
     res.status(500).send('Server Error');
@@ -72,10 +77,14 @@ router.post('/', auth, async (req, res) => {
     });
     
     const project = await newProject.save();
+    console.log(`New project created with ID: ${project._id}`);
     res.json(project);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error('Error creating project:', err.message);
+    res.status(500).json({ 
+      msg: 'Server Error', 
+      error: err.message 
+    });
   }
 });
 
@@ -89,6 +98,20 @@ router.put('/:id', auth, async (req, res) => {
     const { name, description, data, thumbnail } = req.body;
     
     console.log(`Updating project ${req.params.id}`);
+
+    // Check if ID is valid
+    if (!req.params.id || req.params.id === 'undefined' || req.params.id === 'null') {
+      return res.status(400).json({ 
+        msg: 'Invalid project ID provided. Use POST to create a new project instead.' 
+      });
+    }
+
+    // Check if ID is valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ 
+        msg: 'Invalid project ID format. Must be a valid MongoDB ObjectId.' 
+      });
+    }
     
     // Log size of the data being saved
     if (data) {
@@ -99,7 +122,7 @@ router.put('/:id', auth, async (req, res) => {
         console.log(`Project contains ${Object.keys(data.customTextElements).length} custom text elements`);
       }
       
-      if (data.elementStyles) {
+      if (data.elementStyles && data.elementStyles.length) {
         console.log(`Project contains ${data.elementStyles.length} element styles`);
       }
     }
@@ -165,6 +188,11 @@ router.put('/:id', auth, async (req, res) => {
  */
 router.delete('/:id', auth, async (req, res) => {
   try {
+    // Check if ID is valid
+    if (!req.params.id || req.params.id === 'undefined' || req.params.id === 'null') {
+      return res.status(400).json({ msg: 'Invalid project ID provided' });
+    }
+
     // Find the project
     const project = await Project.findById(req.params.id);
     
@@ -179,7 +207,7 @@ router.delete('/:id', auth, async (req, res) => {
     }
     
     // Delete the project
-    await project.remove();
+    await project.deleteOne();
     
     res.json({ msg: 'Project removed' });
   } catch (err) {
@@ -187,7 +215,7 @@ router.delete('/:id', auth, async (req, res) => {
     
     // Check if ID format is valid
     if (err.kind === 'ObjectId') {
-      return res.status(404).json({ msg: 'Project not found' });
+      return res.status(404).json({ msg: 'Project not found - invalid ID format' });
     }
     
     res.status(500).send('Server Error');
