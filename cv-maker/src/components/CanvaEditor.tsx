@@ -11,6 +11,9 @@ import html2canvas from 'html2canvas';
 interface TemplateItem {
   id: string;
   name: string;
+  type: 'header' | 'body' | 'full';
+  thumbnail?: string;
+  elements?: ElementItem[];
 }
 
 interface ElementItem {
@@ -36,11 +39,100 @@ const CanvaEditor: React.FC = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaveSuccess, setIsSaveSuccess] = useState(false);
+  const [selectedTemplateCategory, setSelectedTemplateCategory] = useState<'header' | 'body' | 'full'>('header');
   const [templates, setTemplates] = useState<TemplateItem[]>([
-    { id: 'template1', name: 'Template 1' },
-    { id: 'template2', name: 'Template 2' },
-    { id: 'template3', name: 'Template 3' },
-    { id: 'template4', name: 'Template 4' },
+    { 
+      id: 'header1', 
+      name: 'Modern Header', 
+      type: 'header',
+      thumbnail: '/templates/modern-minimal-thumbnail.png',
+      elements: [
+        {
+          id: uuidv4(),
+          type: 'section',
+          position: { x: 0, y: 0 },
+          style: {
+            width: '100%',
+            height: '200px',
+            display: 'flex',
+            backgroundColor: '#79A3A6', // teal background
+            padding: '0px'
+          }
+        },
+        {
+          id: uuidv4(),
+          type: 'section',
+          position: { x: 0, y: 0 },
+          style: {
+            width: '40%',
+            height: '200px',
+            backgroundColor: '#79A3A6', // teal background
+            padding: '20px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }
+        },
+        {
+          id: uuidv4(),
+          type: 'image',
+          content: 'https://via.placeholder.com/200',
+          position: { x: 75, y: 25 },
+          style: {
+            width: '150px',
+            height: '150px',
+            borderRadius: '50%',
+            objectFit: 'cover',
+            border: '5px solid white'
+          }
+        },
+        {
+          id: uuidv4(),
+          type: 'section',
+          position: { x: 320, y: 0 },
+          style: {
+            width: '60%',
+            height: '200px',
+            backgroundColor: '#E6C9B9', // peach background
+            padding: '30px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center'
+          }
+        },
+        {
+          id: uuidv4(),
+          type: 'text',
+          content: 'OLIVIA WILSON',
+          position: { x: 350, y: 50 },
+          style: {
+            fontSize: '42px',
+            fontWeight: 'bold',
+            fontFamily: 'Arial',
+            color: '#333',
+            marginBottom: '10px',
+            letterSpacing: '2px'
+          }
+        },
+        {
+          id: uuidv4(),
+          type: 'text',
+          content: 'Student',
+          position: { x: 350, y: 110 },
+          style: {
+            fontSize: '20px',
+            fontFamily: 'Arial',
+            color: '#555',
+            fontStyle: 'italic'
+          }
+        }
+      ]
+    },
+    { id: 'header2', name: 'Professional Header', type: 'header' },
+    { id: 'body1', name: 'Experience Layout', type: 'body' },
+    { id: 'body2', name: 'Skills Layout', type: 'body' },
+    { id: 'full1', name: 'Complete CV 1', type: 'full' },
+    { id: 'full2', name: 'Complete CV 2', type: 'full' },
   ]);
   const [selectedFont, setSelectedFont] = useState('Arial');
   const [selectedFontSize, setSelectedFontSize] = useState(16);
@@ -754,6 +846,29 @@ const CanvaEditor: React.FC = () => {
     navigate('/dashboard');
   };
 
+  // Apply template to canvas
+  const applyTemplate = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId);
+    
+    if (!template || !template.elements) return;
+    
+    // For header templates, we should position them at the top
+    if (template.type === 'header') {
+      // Filter out any existing elements that are within the header area (top 200px)
+      const nonHeaderElements = elements.filter(element => 
+        !element.position || element.position.y > 200
+      );
+      
+      // Combine the template elements with the non-header elements
+      setElements([...template.elements, ...nonHeaderElements]);
+    } else {
+      // For full templates, replace all elements
+      setElements([...template.elements]);
+    }
+    
+    setHasUnsavedChanges(true);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Header/Toolbar */}
@@ -812,13 +927,50 @@ const CanvaEditor: React.FC = () => {
         <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
           <div className="p-4">
             <h2 className="font-bold mb-4">Templates</h2>
+            
+            {/* Template category tabs */}
+            <div className="flex border-b border-gray-200 mb-4">
+              <button
+                className={`px-4 py-2 font-medium text-sm ${selectedTemplateCategory === 'header' ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-gray-500'}`}
+                onClick={() => setSelectedTemplateCategory('header')}
+              >
+                Headers
+              </button>
+              <button
+                className={`px-4 py-2 font-medium text-sm ${selectedTemplateCategory === 'body' ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-gray-500'}`}
+                onClick={() => setSelectedTemplateCategory('body')}
+              >
+                Body
+              </button>
+              <button
+                className={`px-4 py-2 font-medium text-sm ${selectedTemplateCategory === 'full' ? 'border-b-2 border-brand-primary text-brand-primary' : 'text-gray-500'}`}
+                onClick={() => setSelectedTemplateCategory('full')}
+              >
+                Full CV
+              </button>
+            </div>
+            
             <div className="grid grid-cols-2 gap-2">
-              {templates.map(template => (
+              {templates
+                .filter(template => template.type === selectedTemplateCategory)
+                .map(template => (
                 <div 
                   key={template.id} 
-                  className="border border-gray-200 rounded-md aspect-square flex items-center justify-center hover:border-brand-primary cursor-pointer"
+                  className="border border-gray-200 rounded-md aspect-square flex flex-col items-center justify-center hover:border-brand-primary cursor-pointer"
+                  onClick={() => applyTemplate(template.id)}
                 >
-                  <span className="text-xs text-gray-600">{template.name}</span>
+                  {template.thumbnail ? (
+                    <img 
+                      src={template.thumbnail} 
+                      alt={template.name} 
+                      className="w-full h-3/4 object-cover rounded-t-md"
+                    />
+                  ) : (
+                    <div className="w-full h-3/4 bg-gray-100 flex items-center justify-center rounded-t-md">
+                      <span className="text-gray-400">Preview</span>
+                    </div>
+                  )}
+                  <span className="text-xs text-gray-600 p-1">{template.name}</span>
                 </div>
               ))}
             </div>
