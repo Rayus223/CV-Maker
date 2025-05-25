@@ -205,13 +205,26 @@ const CanvaEditor: React.FC = () => {
             thumbnail
           );
           
-          // Update the URL to include the project ID for future saves
-          const newUrl = `/canva-editor?project=${savedProject.id}`;
-          window.history.replaceState(null, '', newUrl);
+          // Log the returned project from backend
+          console.log('New project saved successfully:', savedProject);
+          // Use type assertion for _id since it's not in our interface
+          const mongoId = (savedProject as any)._id;
+          console.log('MongoDB ID:', mongoId || savedProject.id);
           
-          // Update local state with the new MongoDB-generated ID
-          setProjectId(savedProject.id);
-          console.log('New project created with ID:', savedProject.id);
+          // Get the MongoDB ID (backend may return it as _id or id)
+          const newId = mongoId || savedProject.id;
+          
+          if (newId) {
+            // Update the URL to include the project ID for future saves
+            const newUrl = `/canva-editor?project=${newId}`;
+            window.history.replaceState(null, '', newUrl);
+            
+            // Update local state with the new MongoDB-generated ID
+            setProjectId(newId);
+            console.log('Updated project ID state to:', newId);
+          } else {
+            console.error('Saved project returned from backend has no ID!', savedProject);
+          }
         } catch (saveError) {
           console.error('Error saving new project:', saveError);
           throw saveError;
@@ -228,13 +241,24 @@ const CanvaEditor: React.FC = () => {
             thumbnail
           );
           
+          // Log the returned project from backend
+          console.log('Project updated successfully:', savedProject);
+          // Use type assertion for _id since it's not in our interface
+          const mongoId = (savedProject as any)._id;
+          console.log('MongoDB ID after update:', mongoId || savedProject.id);
+          
+          // Get the MongoDB ID (backend may return it as _id or id)
+          const updatedId = mongoId || savedProject.id;
+          
           // Make sure the projectId state is correct
-          if (savedProject.id !== projectId) {
-            console.log(`Project ID changed from ${projectId} to ${savedProject.id}`);
-            setProjectId(savedProject.id);
+          if (updatedId && updatedId !== projectId) {
+            console.log(`Project ID changed from ${projectId} to ${updatedId}`);
+            setProjectId(updatedId);
+            
             // Update URL if needed
-            const newUrl = `/canva-editor?project=${savedProject.id}`;
+            const newUrl = `/canva-editor?project=${updatedId}`;
             window.history.replaceState(null, '', newUrl);
+            console.log('Updated URL to:', newUrl);
           }
         } catch (updateError) {
           console.error('Error updating project:', updateError);
@@ -487,6 +511,7 @@ const CanvaEditor: React.FC = () => {
         };
       }
       
+      console.log('Current projectId before save:', projectId);
       let savedProject: CVProject;
       
       if (!projectId || projectId === '' || projectId === 'undefined' || projectId === 'null') {
@@ -500,13 +525,27 @@ const CanvaEditor: React.FC = () => {
             thumbnail
           );
           
-          // Update the URL to include the project ID for future saves
-          const newUrl = `/canva-editor?project=${savedProject.id}`;
-          window.history.replaceState(null, '', newUrl);
+          // Log the returned project for debugging
+          console.log('New project saved successfully with data:', savedProject);
+          // Use type assertion for _id since it's not in our interface
+          const mongoId = (savedProject as any)._id;
+          console.log('MongoDB ID received:', mongoId || savedProject.id);
           
-          // Update local state
-          setProjectId(savedProject.id);
-          console.log('New project created with ID:', savedProject.id);
+          // Get the MongoDB ID (backend may return it as _id or id)
+          const newId = mongoId || savedProject.id;
+          
+          if (newId) {
+            // Update the URL to include the project ID for future saves
+            const newUrl = `/canva-editor?project=${newId}`;
+            window.history.replaceState(null, '', newUrl);
+            console.log('URL updated to:', newUrl);
+            
+            // Update local state with the new MongoDB-generated ID
+            setProjectId(newId);
+            console.log('Project ID state updated to:', newId);
+          } else {
+            console.error('Saved project returned from backend has no ID!', savedProject);
+          }
         } catch (saveError) {
           console.error('Error saving new project:', saveError);
           throw saveError;
@@ -523,13 +562,24 @@ const CanvaEditor: React.FC = () => {
             thumbnail
           );
           
+          // Log the returned project for debugging
+          console.log('Project updated with data:', savedProject);
+          // Use type assertion for _id since it's not in our interface
+          const mongoId = (savedProject as any)._id;
+          console.log('MongoDB ID after update:', mongoId || savedProject.id);
+          
+          // Get the MongoDB ID (backend may return it as _id or id)
+          const updatedId = mongoId || savedProject.id;
+          
           // Make sure the projectId state is correct
-          if (savedProject.id !== projectId) {
-            console.log(`Project ID changed from ${projectId} to ${savedProject.id}`);
-            setProjectId(savedProject.id);
+          if (updatedId && updatedId !== projectId) {
+            console.log(`Project ID changed from ${projectId} to ${updatedId}`);
+            setProjectId(updatedId);
+            
             // Update URL if needed
-            const newUrl = `/canva-editor?project=${savedProject.id}`;
+            const newUrl = `/canva-editor?project=${updatedId}`;
             window.history.replaceState(null, '', newUrl);
+            console.log('URL updated to:', newUrl);
           }
         } catch (updateError) {
           console.error('Error updating project:', updateError);
@@ -545,7 +595,7 @@ const CanvaEditor: React.FC = () => {
       lastSavedStateRef.current = getProjectStateString();
       setHasUnsavedChanges(false);
       
-      console.log('Project saved successfully:', savedProject);
+      console.log('Project saved successfully with ID:', savedProject.id);
       
     } catch (error) {
       console.error('Error saving project:', error);

@@ -2,6 +2,7 @@ import { CVData } from '../types/types';
 
 export interface CVProject {
   id: string;
+  _id?: string;
   name: string;
   description?: string;
   data: CVData;
