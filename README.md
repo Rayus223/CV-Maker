@@ -9,7 +9,7 @@
 
 ### 🎨 Intuitive Interface
 - **Welcome Screen**: A clean, professional landing page introducing users to the CV creation experience
-- **Modern Design**: Beautifully crafted UI with Dear Sir Home Tuition's signature blue and yellow color scheme
+- **Modern Design**: Beautifully crafted UI with signature blue and yellow color scheme
 - **Responsive Layout**: Fully responsive design that works perfectly on both desktop and mobile devices
 
 ### ✏️ Smart CV Editor
